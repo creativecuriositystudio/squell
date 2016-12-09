@@ -58,7 +58,7 @@ db.query(User)
 
 This query would find a user with the email of exactly `test@example.com`,
 or an ID larger than 5, but with the benefit of the query being checked
-at compile time. Take a look atthe API documentation for more information
+at compile time. Take a look at the API documentation for more information
 on the query operators available - but for the most part they are the same
 as the Sequelize operators.
 
