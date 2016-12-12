@@ -39,20 +39,14 @@ export class Database {
    */
   public define<T extends Model>(model: typeof Model): Database {
     let name = this.getModelName(model);
-    let options = this.getModelOptions(model);
 
     // Only define the model on the connection once.
     if (this.conn.isDefined(name)) {
       return this;
     }
 
-    // Get the list of keys and then map them into the model attributes defintion
-    // format Sequelize expects.
-    let keys: string[] = Reflect.getMetadata(MODEL_ATTR_KEYS_META_KEY, model.prototype);
-    let attrs = _.chain(keys)
-      .map((x) => [x, Reflect.getMetadata(ATTR_OPTIONS_META_KEY, model.prototype, x)])
-      .fromPairs()
-      .value();
+    let attrs = this.getModelAttributes(model);
+    let options = this.getModelOptions(model);
 
     this.conn.define<T, T>(name, attrs, options);
 
@@ -126,7 +120,7 @@ export class Database {
    *              otherwise an exception is thrown.
    * @returns The internal Sequelize representation of the model.
    */
-  protected getModel<T extends Model>(model: typeof Model): Sequelize.Model<T, T> {
+  public getModel<T extends Model>(model: typeof Model): Sequelize.Model<T, T> {
     let name = this.getModelName(model);
 
     // Don't continue if there's no model defined yet.
@@ -145,15 +139,39 @@ export class Database {
    *              otherwise an exception is thrown.
    * @returns The model options.
    */
-  protected getModelOptions(model: typeof Model): any {
+  public getModelOptions(model: typeof Model): any {
     let options = Reflect.getMetadata(MODEL_OPTIONS_META_KEY, model);
 
     // We need a model name set to continue.
     if (!options) {
-      throw new Error('Model classes must be decorated using @model decorator');
+      throw new Error('Model classes must be decorated using the @model decorator');
     }
 
     return options;
+  }
+
+  /**
+   * Get the model attributes stored using the @attr decorator from a model class.
+   *
+   * @throws Error
+   * @param model The model class to get the attributes for. The model must have been decorated with @model,
+   *              otherwise an exception is thrown.
+   * @returns The model options.
+   */
+  public getModelAttributes(model: typeof Model): any {
+    // Get the list of keys and then map them into the model attributes defintion
+    // format Sequelize expects.
+    let keys: string[] = Reflect.getMetadata(MODEL_ATTR_KEYS_META_KEY, model.prototype);
+
+    // We need model attributes.
+    if (!keys) {
+      throw new Error('Model classes must have at least one property decorated using the @attr decorator');
+    }
+
+    return _.chain(keys)
+      .map((x) => [x, Reflect.getMetadata(ATTR_OPTIONS_META_KEY, model.prototype, x)])
+      .fromPairs()
+      .value();
   }
 
   /**
@@ -164,7 +182,7 @@ export class Database {
    *              otherwise an exception is thrown.
    * @returns The model name.
    */
-  protected getModelName(model: typeof Model): string {
+  public getModelName(model: typeof Model): string {
     let options = this.getModelOptions(model);
 
     // We need a model name set to continue.

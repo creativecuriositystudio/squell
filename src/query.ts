@@ -72,8 +72,8 @@ export class Query<T extends Model> {
     this.wheres = wheres || [];
     this.attrs = attrs;
     this.orderings = orderings;
-    this.dropped = 0;
-    this.taken = 0;
+    this.dropped = dropped || 0;
+    this.taken = taken || 0;
   }
 
   /**
@@ -182,7 +182,7 @@ export class Query<T extends Model> {
   public restore(options?: RestoreOptions): Bluebird<void> {
     return this.internalModel.restore(_.extend({}, options, {
       where: this.compileWheres(),
-      limit: this.taken,
+      limit: this.taken > 0 ? this.taken : undefined,
     }));
   }
 
@@ -197,7 +197,7 @@ export class Query<T extends Model> {
   public destroy(options?: DestroyOptions): Bluebird<number> {
     return this.internalModel.destroy(_.extend({}, options, {
       where: this.compileWheres(),
-      limit: this.taken,
+      limit: this.taken > 0 ? this.taken : undefined,
     }));
   }
 
@@ -214,29 +214,72 @@ export class Query<T extends Model> {
     }));
   }
 
+  /**
+   * Aggregate the model instances in the database using a specific
+   * aggregation function and model attribute.
+   *
+   * @param fn The aggregate function to use.
+   * @param map A lambda function that will take the queried model attributes
+   *            and produce the attribute to aggregate by.
+   * @returns A promise that resolves with the aggregation value if successful.
+   */
   public aggregate(fn: string, map: (attrs: ModelAttributes<T>) => Attribute<any>,
                    options?: AggregateOptions): Bluebird<any> {
     return this.internalModel.aggregate(map(this.getModelAttrs()).compileLeft(), fn, _.extend({}, options, {
       where: this.compileWheres(),
-      limit: this.taken,
+      limit: this.taken > 0 ? this.taken : undefined,
     }));
   }
 
+  /**
+   * Aggregate the model instances in the database using the min
+   * aggregation function and model attribute.
+   *
+   * @param map A lambda function that will take the queried model attributes
+   *            and produce the attribute to aggregate by.
+   * @returns A promise that resolves with the aggregation value if successful.
+   */
   public min(map: (attrs: ModelAttributes<T>) => Attribute<any>,
              options?: AggregateOptions): Bluebird<any> {
     return this.aggregate('min', map, options);
   }
 
+  /**
+   * Aggregate the model instances in the database using the max
+   * aggregation function and model attribute.
+   *
+   * @param map A lambda function that will take the queried model attributes
+   *            and produce the attribute to aggregate by.
+   * @returns A promise that resolves with the aggregation value if successful.
+   */
   public max(map: (attrs: ModelAttributes<T>) => Attribute<any>,
              options?: AggregateOptions): Bluebird<any> {
     return this.aggregate('max', map, options);
   }
 
+  /**
+   * Aggregate the model instances in the database using the sum
+   * aggregation function and model attribute.
+   *
+   * @param map A lambda function that will take the queried model attributes
+   *            and produce the attribute to aggregate by.
+   * @returns A promise that resolves with the aggregation value if successful.
+   */
   public sum(map: (attrs: ModelAttributes<T>) => Attribute<any>,
              options?: AggregateOptions): Bluebird<any> {
     return this.aggregate('sum', map, options);
   }
 
+  /**
+   * Find or create a model instance in the database using the built query.
+   * The created instance will use any values set in the query,
+   * hence you will need to build the query using the eq attribute
+   * method so that the instance is built with the right attribute values.
+   *
+   * @param options Any extra Sequelize find or initialize options required.
+   * @returns A promise that resolves with the found/created instance and
+   *          a bool that is true when an instance was created.
+   */
   public findOrCreate(options?: FindOrInitializeOptions<T>): Bluebird<[T, boolean]> {
     return this.internalModel.findOrCreate(_.extend({}, options, {
       where: this.compileWheres(),
@@ -285,7 +328,7 @@ export class Query<T extends Model> {
   public update(model: Partial<T>, options?: UpdateOptions): Bluebird<[number, T[]]> {
     return this.internalModel.update(model as T, _.extend({}, options, {
       where: this.compileWheres(),
-      limit: this.taken,
+      limit: this.taken > 0 ? this.taken : undefined,
     }));
   }
 
@@ -326,7 +369,7 @@ export class Query<T extends Model> {
    *
    * @returns The Sequelize representation.
    */
-  protected compileFindOptions(): FindOptions {
+  public compileFindOptions(): FindOptions {
     let options: FindOptions = {
       where: this.compileWheres(),
     };
@@ -355,7 +398,7 @@ export class Query<T extends Model> {
    *
    * @returns The Sequelize representation.
    */
-  protected compileWheres(): WhereOptions {
+  public compileWheres(): WhereOptions {
     return _.extend.apply(_, [{}].concat(this.wheres.map(w => w.compile())));
   }
 
@@ -364,7 +407,7 @@ export class Query<T extends Model> {
    *
    * @returns The Sequelize representation.
    */
-  protected compileAttributes(): FindOptionsAttributesArray {
+  public compileAttributes(): FindOptionsAttributesArray {
     return this.attrs.map(w => w.compileRight());
   }
 
@@ -373,7 +416,7 @@ export class Query<T extends Model> {
    *
    * @returns The Sequelize representation.
    */
-  protected compileOrderings(): any {
+  public compileOrderings(): any {
     return this.orderings.map(o => [o[0].compileRight(), o[1].toString()]);
   }
 

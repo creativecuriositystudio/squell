@@ -148,7 +148,7 @@ export abstract class Attribute<T> {
    * @returns The generated where query.
    */
   public iLike(other: string | Attribute<T>): Where {
-    return this.build(other, '$ilike');
+    return this.build(other, '$iLike');
   }
 
   /**
@@ -201,10 +201,8 @@ export abstract class Attribute<T> {
    * @param other The constant array to check.
    * @returns The generated where query.
    */
-  public in(other: T[]) {
-    return new Where({
-      $in: other,
-    });
+  public in(other: T[]): Where {
+    return this.build(other, '$in');
   }
 
   /**
@@ -214,10 +212,8 @@ export abstract class Attribute<T> {
    * @param other The constant array to check.
    * @returns The generated where query.
    */
-  public notIn(other: T[]) {
-    return new Where({
-      $notIn: other,
-    });
+  public notIn(other: T[]): Where {
+    return this.build(other, '$notIn');
   }
 
   /**
@@ -228,10 +224,8 @@ export abstract class Attribute<T> {
    * @param other The lower and upper bound constant to check.
    * @returns The generated where query.
    */
-  public between(other: [T, T]) {
-    return new Where({
-      $between: other,
-    });
+  public between(other: [T, T]): Where {
+    return this.build(other, '$between');
   }
 
   /**
@@ -242,10 +236,8 @@ export abstract class Attribute<T> {
    * @param other The constant array to check.
    * @returns The generated where query.
    */
-  public notBetween(other: [T, T]) {
-    return new Where({
-      $notBetween: other,
-    });
+  public notBetween(other: [T, T]): Where {
+    return this.build(other, '$notBetween');
   }
 
   /**
@@ -255,10 +247,8 @@ export abstract class Attribute<T> {
    * @param other The constant array to check.
    * @returns The generated where query.
    */
-  public overlap(other: T[]) {
-    return new Where({
-      $overlap: other,
-    });
+  public overlap(other: T[]): Where {
+    return this.build(other, '$overlap');
   }
 
   /**
@@ -268,10 +258,8 @@ export abstract class Attribute<T> {
    * @param other The constant array to check.
    * @returns The generated where query.
    */
-  public contains(other: T | T[]) {
-    return new Where({
-      $contains: other,
-    });
+  public contains(other: T | T[]): Where {
+    return this.build(other, '$contains');
   }
 
   /**
@@ -281,10 +269,8 @@ export abstract class Attribute<T> {
    * @param other The constant array to check.
    * @returns The generated where query.
    */
-  public contained(other: T[]) {
-    return new Where({
-      $contained: other,
-    });
+  public contained(other: T[]): Where {
+    return this.build(other, '$contained');
   }
 
   /**
@@ -294,10 +280,8 @@ export abstract class Attribute<T> {
    * @param other The constant array to check.
    * @returns The generated where query.
    */
-  public any(other: T[]) {
-    return new Where({
-      $any: other,
-    });
+  public any(other: T[]): Where {
+    return this.build(other, '$any');
   }
 
   /**
@@ -307,10 +291,8 @@ export abstract class Attribute<T> {
    * @param other The constant array to check.
    * @returns The generated where query.
    */
-  public adjacent(other: T[]) {
-    return new Where({
-      $adjacent: other,
-    });
+  public adjacent(other: T[]): Where {
+    return this.build(other, '$adjacent');
   }
 
   /**
@@ -320,10 +302,8 @@ export abstract class Attribute<T> {
    * @param other The constant array to check.
    * @returns The generated where query.
    */
-  public strictLeft(other: T[]) {
-    return new Where({
-      $strictLeft: other,
-    });
+  public strictLeft(other: T[]): Where {
+    return this.build(other, '$strictLeft');
   }
 
   /**
@@ -333,10 +313,8 @@ export abstract class Attribute<T> {
    * @param other The constant array to check.
    * @returns The generated where query.
    */
-  public strictRight(other: T[]) {
-    return new Where({
-      $strictRight: other,
-    });
+  public strictRight(other: T[]): Where {
+    return this.build(other, '$strictRight');
   }
 
   /**
@@ -346,10 +324,8 @@ export abstract class Attribute<T> {
    * @param other The constant array to check.
    * @returns The generated where query.
    */
-  public noExtendRight(other: T[]) {
-    return new Where({
-      $noExtendRight: other,
-    });
+  public noExtendRight(other: T[]): Where {
+    return this.build(other, '$noExtendRight');
   }
 
   /**
@@ -359,10 +335,8 @@ export abstract class Attribute<T> {
    * @param other The constant array to check.
    * @returns The generated where query.
    */
-  public noExtendLeft(other: T[]) {
-    return new Where({
-      $noExtendLeft: other,
-    });
+  public noExtendLeft(other: T[]): Where {
+    return this.build(other, '$noExtendLeft');
   }
 
   /**

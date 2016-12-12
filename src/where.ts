@@ -1,5 +1,5 @@
 /** Contains the where class. */
-import _ from 'lodash';
+import * as _ from 'lodash';
 import { WhereOptions } from 'sequelize';
 
 /**
@@ -25,9 +25,7 @@ export class Where {
    * @returns The new where query.
    */
   public and(other: Where): Where {
-    return new Where(_.extend({}, this.compile(), {
-      $and: other.compile(),
-    }));
+    return new Where(_.merge({}, this.compile(), other.compile()));
   }
 
   /**
