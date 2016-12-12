@@ -8,6 +8,7 @@ import { DestroyOptions, DropOptions, Options as SequelizeOptions,
 
 import * as Sequelize from 'sequelize';
 
+import { Attribute, PlainAttribute } from './attribute';
 import { ATTR_OPTIONS_META_KEY, Model, MODEL_ATTR_KEYS_META_KEY, MODEL_OPTIONS_META_KEY } from './model';
 import { Query } from './query';
 
@@ -129,6 +130,20 @@ export class Database {
     }
 
     return this.conn.model<T, T>(name);
+  }
+
+  /**
+   * Get the model primary attribute.
+   *
+   * @throws Error
+   * @param model The model class to get the primary attribute for. The model must have been decorated with @model,
+   *              otherwise an exception is thrown.
+   * @returns The model primary attribute.
+   */
+  public getModelPrimary<T, U extends Model>(model: typeof Model & { new(): U }): Attribute<T> {
+    // FIXME: Wish we didn't have to cast any here, but primaryKeyAttribute isn't exposed
+    // by the Sequelize type definitions.
+    return new PlainAttribute<T>((this.getModel<U>(model) as any).primaryKeyAttribute);
   }
 
   /**
