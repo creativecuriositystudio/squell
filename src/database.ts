@@ -9,8 +9,17 @@ import { DestroyOptions, DropOptions, Options as SequelizeOptions,
 import * as Sequelize from 'sequelize';
 
 import { Attribute, PlainAttribute } from './attribute';
-import { ATTR_OPTIONS_META_KEY, Model, MODEL_ATTR_KEYS_META_KEY, MODEL_OPTIONS_META_KEY } from './model';
+import { ATTR_OPTIONS_META_KEY, Model, MODEL_ATTR_KEYS_META_KEY, MODEL_OPTIONS_META_KEY,
+         ASSOC_OPTIONS_META_KEY, MODEL_ASSOC_KEYS_META_KEY, Associations } from './model';
 import { Query } from './query';
+
+interface ModelRecord {
+  model: Model;
+  options: any;
+  attrs: any;
+  assocs: any;
+  isAssociated: boolean;
+};
 
 /**
  * The database connection, wrapping a Sequelize connection.
@@ -22,6 +31,12 @@ export class Database {
   /** The Sequelize connection. */
   public conn: Connection;
 
+  /** Indicates whether all of the defined models have had their associations created */
+  public isAssociated: boolean;
+
+  /** A record of all defined models, along with their options, attributes, associations, and whether the associations have been created */
+  private models: { [index: string]: ModelRecord; };
+
   /**
    * Connect to a database using Sequelize.
    *
@@ -30,6 +45,8 @@ export class Database {
    */
   constructor(url: string, options?: SequelizeOptions) {
     this.conn = new Sequelize(url, options);
+    this.models = {};
+    this.isAssociated = false;
   }
 
   /**
@@ -46,12 +63,44 @@ export class Database {
       return this;
     }
 
-    let attrs = this.getModelAttributes(model);
-    let options = this.getModelOptions(model);
+    this.isAssociated = false;
 
-    this.conn.define<T, T>(name, attrs, options);
+    let options = this.getModelOptions(model);
+    let attrs = this.getModelAttributes(model);
+    let assocs = this.getModelAssociations(model);
+
+    let sequelizeModel = this.conn.define<T, T>(name, attrs, options);
+
+    this.models[name] = {
+        model: sequelizeModel,
+        options,
+        attrs,
+        assocs,
+        isAssociated: false,
+    };
 
     return this;
+  }
+
+  public associate() {
+    if (this.isAssociated) return;
+
+    _.each(this.models, function (model, modelName) {
+      if (model.isAssociated) return;
+
+      _.each(model.assocs, function (assoc, propName) {
+        var assocFunc = assoc.type == Associations.HAS_ONE ? 'hasOne' :
+                        assoc.type == Associations.HAS_MANY ? 'hasMany' :
+                        assoc.type == Associations.BELONGS_TO ? 'belongsTo' :
+                        assoc.type == Associations.BELONGS_TO_MANY ? 'belongsToMany' :
+                        null;
+        model.model[assocFunc](assoc.model, assoc.options);
+      });
+
+      model.isAssociated = true;
+    });
+
+    this.isAssociated = false;
   }
 
   /**
@@ -61,6 +110,7 @@ export class Database {
    * @returns A promise that resolves when the table syncing is completed.
    */
   public sync(options?: SyncOptions): Bluebird<any> {
+    this.associate();
     return this.conn.sync(options);
   }
 
@@ -185,6 +235,30 @@ export class Database {
 
     return _.chain(keys)
       .map((x) => [x, Reflect.getMetadata(ATTR_OPTIONS_META_KEY, model.prototype, x)])
+      .fromPairs()
+      .value();
+  }
+
+  /**
+   * Get the model associations stored using the @assoc decorators on a model's properties.
+   *
+   * @throws Error
+   * @param model The model class to get the associations for. The model must have been decorated with @model,
+   *              otherwise an exception is thrown.
+   * @returns The model options.
+   */
+  public getModelAssociations(model: typeof Model): any {
+    // Get the list of keys and then map them into the model attributes defintion
+    // format Sequelize expects.
+    let keys: string[] = Reflect.getMetadata(MODEL_ASSOC_KEYS_META_KEY, model.prototype);
+
+    // We need model attributes.
+    if (!keys) {
+      throw new Error('Model classes must have at least one property decorated using the @attr decorator');
+    }
+
+    return _.chain(keys)
+      .map((x) => [x, Reflect.getMetadata(ASSOC_OPTIONS_META_KEY, model.prototype, x)])
       .fromPairs()
       .value();
   }
