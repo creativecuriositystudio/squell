@@ -15,6 +15,7 @@ import { Query } from './query';
 
 interface ModelRecord {
   model: Model;
+  internalModel: Sequelize.Model<Model, Model>;
   options: any;
   attrs: any;
   assocs: any;
@@ -69,10 +70,11 @@ export class Database {
     let attrs = this.getModelAttributes(model);
     let assocs = this.getModelAssociations(model);
 
-    let sequelizeModel = this.conn.define<T, T>(name, attrs, options);
+    let internalModel = this.conn.define<T, T>(name, attrs, options);
 
     this.models[name] = {
-        model: sequelizeModel,
+        model,
+        internalModel,
         options,
         attrs,
         assocs,
@@ -82,25 +84,39 @@ export class Database {
     return this;
   }
 
-  public associate() {
-    if (this.isAssociated) return;
+  /**
+   * Create the associations on each of the newly defined models.
+   * This must be called only after all of the associated models
+   * have been defined.
+   * It is called automatically by sync().
+   *
+   * @see sync
+   */
+  public associate(): Database {
+    if (this.isAssociated) return this;
 
-    _.each(this.models, function (model, modelName) {
+    let db = this;
+
+    _.each(this.models, function (model: ModelRecord, modelName: string) {
       if (model.isAssociated) return;
 
-      _.each(model.assocs, function (assoc, propName) {
-        var assocFunc = assoc.type == Associations.HAS_ONE ? 'hasOne' :
-                        assoc.type == Associations.HAS_MANY ? 'hasMany' :
-                        assoc.type == Associations.BELONGS_TO ? 'belongsTo' :
-                        assoc.type == Associations.BELONGS_TO_MANY ? 'belongsToMany' :
-                        null;
-        model.model[assocFunc](assoc.model, assoc.options);
+      _.each(model.assocs, function (assoc: any, propName: string | symbol) {
+          let target = db.getModel(assoc.model);
+
+          switch (assoc.type) {
+          case Associations.HAS_ONE: model.internalModel.hasOne(target, assoc.options); break;
+          case Associations.HAS_MANY: model.internalModel.hasMany(target, assoc.options); break;
+          case Associations.BELONGS_TO: model.internalModel.belongsTo(target, assoc.options); break;
+          case Associations.BELONGS_TO_MANY: model.internalModel.belongsToMany(target, assoc.options); break;
+          }
       });
 
       model.isAssociated = true;
     });
 
     this.isAssociated = false;
+
+    return this;
   }
 
   /**
@@ -111,6 +127,7 @@ export class Database {
    */
   public sync(options?: SyncOptions): Bluebird<any> {
     this.associate();
+
     return this.conn.sync(options);
   }
 
@@ -160,7 +177,7 @@ export class Database {
    * @returns A new query of the model.
    */
   public query<T extends Model>(model: typeof Model & { new(): T }): Query<T> {
-    return new Query<T>(model, this.getModel<T>(model));
+    return new Query<T>(this, model);
   }
 
   /**
@@ -251,11 +268,6 @@ export class Database {
     // Get the list of keys and then map them into the model attributes defintion
     // format Sequelize expects.
     let keys: string[] = Reflect.getMetadata(MODEL_ASSOC_KEYS_META_KEY, model.prototype);
-
-    // We need model attributes.
-    if (!keys) {
-      throw new Error('Model classes must have at least one property decorated using the @attr decorator');
-    }
 
     return _.chain(keys)
       .map((x) => [x, Reflect.getMetadata(ASSOC_OPTIONS_META_KEY, model.prototype, x)])

@@ -9,8 +9,10 @@ import { FindOptions, WhereOptions, FindOptionsAttributesArray,
        } from 'sequelize';
 
 import { Attribute, PlainAttribute } from './attribute';
-import { MODEL_ATTR_KEYS_META_KEY, Model, ModelAttributes } from './model';
+import { MODEL_ATTR_KEYS_META_KEY, MODEL_ASSOC_KEYS_META_KEY,
+         ASSOC_OPTIONS_META_KEY, Model, ModelAttributes } from './model';
 import { Where } from './where';
+import { Database } from './database';
 
 /** A type alias for a sorting order. */
 export type Order = string;
@@ -25,31 +27,45 @@ export const ASC: Order  = 'ASC';
 export type AttributeOrder<T> = [Attribute<T>, Order];
 
 /**
+ * Query options for a Squell query, containing where, attributes, includes, order, and dropped & taken
+ */
+export interface QueryOptions {
+  /** The array of where queries for the query. */
+  wheres: Where[];
+
+  /** The array of attribute filters for the query. */
+  attrs: Attribute<any>[];
+
+  /** The array of association filters for the query. */
+  assocs: any[];
+
+  /** The array of attribute orderings for the query. */
+  orderings: AttributeOrder<any>[];
+
+  /** The number of records to drop (i.e. OFFSET). */
+  dropped: number;
+
+  /** The number of records to take (i.e. LIMIT). */
+  taken: number;
+}
+
+/**
  * A type-safe query on a Squell model.
  * This is the main interaction with the library, and every Squell query compiles
  * down to a relevant Sequelize query.
  */
 export class Query<T extends Model> {
+  /** The Squell database that generated the query relates to. */
+  private db: Database;
+
   /** The Squell model being queried. */
   private model: typeof Model;
 
   /** The internal Sequelize representation of the model. */
   private internalModel: Sequelize.Model<T, T>;
 
-  /** The array of where queries for the query. */
-  private wheres: Where[];
-
-  /** The array of attribute filters for the query. */
-  private attrs: Attribute<any>[];
-
-  /** The array of attribute orderings for the query. */
-  private orderings: AttributeOrder<any>[];
-
-  /** The number of records to drop (i.e. OFFSET). */
-  private dropped: number;
-
-  /** The number of records to take (i.e. LIMIT). */
-  private taken: number;
+  /** The options for the query, include wheres, includes, etc. */
+  private options: QueryOptions;
 
   /**
    * Construct a query. This generally should not be done by user code,
@@ -63,31 +79,28 @@ export class Query<T extends Model> {
    * @param dropped The number of records to be dropped.
    * @param taken The number of records to be taken.
    */
-  constructor(model: typeof Model, internalModel: Sequelize.Model<T, T>,
-              wheres?: Where[], attrs?: Attribute<any>[],
-              orderings?: AttributeOrder<any>[], dropped?: number,
-              taken?: number) {
+  constructor(db: Database, model: typeof Model, options?: QueryOptions) {
+    this.db = db;
     this.model = model;
-    this.internalModel = internalModel;
-    this.wheres = wheres || [];
-    this.attrs = attrs;
-    this.orderings = orderings;
-    this.dropped = dropped || 0;
-    this.taken = taken || 0;
+    this.internalModel = db.getModel<T>(model);
+    this.options = options || {
+      wheres: [],
+      dropped: 0,
+      taken: 0,
+    } as QueryOptions;
   }
 
   /**
    * Filter a query using a where query.
    *
    * @param map A lambda function that will take the queried model attributes
-   *            and produce the where query to filter using.
+   *            and produce the where query to filter
    * @returns   The filtered query.
    */
   public where(map: (attrs: ModelAttributes<T>) => Where): Query<T> {
-    return new Query<T>(this.model, this.internalModel,
-                        this.wheres.concat(map(this.getModelAttrs())),
-                        this.attrs, this.orderings, this.dropped,
-                        this.taken);
+      let options = _.extend({}, this.options, { wheres: this.options.wheres.concat(map(this.getModelAttrs())) });
+
+      return new Query<T>(this.db, this.model, options);
   }
 
   /**
@@ -98,11 +111,34 @@ export class Query<T extends Model> {
    * @returns The new query with the selected attributes only.
    */
   public attributes(map: (attrs: ModelAttributes<T>) => Attribute<any>[]): Query<T> {
-    let attrs = this.attrs || [];
+    let attrs = this.options.attrs || [];
+    let options = _.extend({}, this.options, { attrs: attrs.concat(map(this.getModelAttrs())) });
 
-    return new Query<T>(this.model, this.internalModel, this.wheres,
-                        attrs.concat(map(this.getModelAttrs())),
-                        this.orderings, this.dropped, this.taken);
+    return new Query<T>(this.db, this.model, options);
+  }
+
+  /**
+   * Select the associatied models to include any association models in the query.
+   *
+   * @param map A lambda function that will take the queried model attributes
+   *            and produce the where query to filter using.
+   * @returns   The filtered query.
+   */
+  public include<U extends Model>(model: typeof Model, attr: (attrs: ModelAttributes<T>) => Attribute<any>, query?: (query: Query<U>) => Query<U>): Query<T> {
+    let assocs = this.options.assocs || [];
+
+    let assocKey = attr(this.getModelAssocs()).compileRight();
+    let assocOptions = this.getModelAssocOptions(assocKey);
+
+    let includeOptions = {
+      model: this.db.getModel(model),
+      as: assocKey,
+    };
+    if (query) includeOptions = _.extend({}, query(new Query<U>(this.db, model)).compileFindOptions(), includeOptions);
+
+    let options = _.extend({}, this.options, { assocs: assocs.concat([includeOptions]) });
+
+    return new Query<T>(this.db, this.model, options);
   }
 
   /**
@@ -113,11 +149,10 @@ export class Query<T extends Model> {
    * @returns    The ordered query.
    */
   public order(map: (attrs: ModelAttributes<T>) => AttributeOrder<any>[]): Query<T> {
-    let orderings = this.orderings || [];
+    let orderings = this.options.orderings || [];
+    let options = _.extend({}, this.options, { orderings: orderings.concat(map(this.getModelAttrs())) });
 
-    return new Query<T>(this.model, this.internalModel, this.wheres, this.attrs,
-                        orderings.concat(map(this.getModelAttrs())),
-                        this.dropped, this.taken);
+    return new Query<T>(this.db, this.model, options);
   }
 
   /**
@@ -126,9 +161,9 @@ export class Query<T extends Model> {
    * and will only affect the find and findOne queries.
    */
   public drop(num: number) {
-    return new Query<T>(this.model, this.internalModel, this.wheres,
-                        this.attrs, this.orderings,
-                        this.dropped + num, this.taken);
+    let options = _.extend({}, this.options, { dropped: this.options.dropped + num });
+
+    return new Query<T>(this.db, this.model, options);
   }
 
   /**
@@ -137,9 +172,9 @@ export class Query<T extends Model> {
    * findOne, restore, destroy, aggregation and updates.
    */
   public take(num: number) {
-    return new Query<T>(this.model, this.internalModel, this.wheres,
-                        this.attrs, this.orderings,
-                        this.dropped, this.taken + num);
+    let options = _.extend({}, this.options, { taken: this.options.taken + num });
+
+    return new Query<T>(this.db, this.model, options);
   }
 
   /**
@@ -182,7 +217,7 @@ export class Query<T extends Model> {
   public restore(options?: RestoreOptions): Bluebird<void> {
     return this.internalModel.restore(_.extend({}, options, {
       where: this.compileWheres(),
-      limit: this.taken > 0 ? this.taken : undefined,
+      limit: this.options.taken > 0 ? this.options.taken : undefined,
     }));
   }
 
@@ -197,7 +232,7 @@ export class Query<T extends Model> {
   public destroy(options?: DestroyOptions): Bluebird<number> {
     return this.internalModel.destroy(_.extend({}, options, {
       where: this.compileWheres(),
-      limit: this.taken > 0 ? this.taken : undefined,
+      limit: this.options.taken > 0 ? this.options.taken : undefined,
     }));
   }
 
@@ -227,7 +262,7 @@ export class Query<T extends Model> {
                    options?: AggregateOptions): Bluebird<any> {
     return this.internalModel.aggregate(map(this.getModelAttrs()).compileLeft(), fn, _.extend({}, options, {
       where: this.compileWheres(),
-      limit: this.taken > 0 ? this.taken : undefined,
+      limit: this.options.taken > 0 ? this.options.taken : undefined,
     }));
   }
 
@@ -328,7 +363,7 @@ export class Query<T extends Model> {
   public update(model: Partial<T>, options?: UpdateOptions): Bluebird<[number, T[]]> {
     return this.internalModel.update(model as T, _.extend({}, options, {
       where: this.compileWheres(),
-      limit: this.taken > 0 ? this.taken : undefined,
+      limit: this.options.taken > 0 ? this.options.taken : undefined,
     }));
   }
 
@@ -365,6 +400,31 @@ export class Query<T extends Model> {
   }
 
   /**
+   * Gets the model associations object from the model being queried.
+   *
+   * @returns The model associations object.
+   */
+  protected getModelAssocs(): ModelAttributes<T> {
+    let attrs = {};
+    let keys: string[] = Reflect.getMetadata(MODEL_ASSOC_KEYS_META_KEY, this.model.prototype);
+
+    for (let key of keys) {
+      attrs[key] = new PlainAttribute(key);
+    }
+
+    return attrs as ModelAttributes<T>;
+  }
+
+  /**
+   * Gets a association's options (target model etc.) from the model being queried.
+   *
+   * @returns The association's options.
+   */
+  protected getModelAssocOptions(key: string): any {
+    return Reflect.getMetadata(ASSOC_OPTIONS_META_KEY, this.model.prototype);
+  }
+
+  /**
    * Compile the find options for a find/findOne call, as expected by Sequelize.
    *
    * @returns The Sequelize representation.
@@ -374,20 +434,24 @@ export class Query<T extends Model> {
       where: this.compileWheres(),
     };
 
-    if (this.attrs) {
+    if (this.options.attrs) {
       options.attributes = this.compileAttributes();
     }
 
-    if (this.orderings) {
+    if (this.options.assocs) {
+      //options.include = this.compileIncludes();
+    }
+
+    if (this.options.orderings) {
       options.order = this.compileOrderings();
     }
 
-    if (this.dropped > 0) {
-      options.offset = this.dropped;
+    if (this.options.dropped > 0) {
+      options.offset = this.options.dropped;
     }
 
-    if (this.taken > 0) {
-      options.limit = this.taken;
+    if (this.options.taken > 0) {
+      options.limit = this.options.taken;
     }
 
     return options;
@@ -399,7 +463,7 @@ export class Query<T extends Model> {
    * @returns The Sequelize representation.
    */
   public compileWheres(): WhereOptions {
-    return _.extend.apply(_, [{}].concat(this.wheres.map(w => w.compile())));
+    return _.extend.apply(_, [{}].concat(this.options.wheres.map(w => w.compile())));
   }
 
   /**
@@ -408,7 +472,7 @@ export class Query<T extends Model> {
    * @returns The Sequelize representation.
    */
   public compileAttributes(): FindOptionsAttributesArray {
-    return this.attrs.map(w => w.compileRight());
+    return this.options.attrs.map(w => w.compileRight());
   }
 
   /**
@@ -417,7 +481,15 @@ export class Query<T extends Model> {
    * @returns The Sequelize representation.
    */
   public compileOrderings(): any {
-    return this.orderings.map(o => [o[0].compileRight(), o[1].toString()]);
+    return this.options.orderings.map(o => [o[0].compileRight(), o[1].toString()]);
   }
 
+  /**
+   * Compile the includes to a representation expected by Sequelize, including nested includes
+   *
+   * @returns The Sequelize representation.
+   */
+  public compileIncludes(): any {
+    return this.options.assocs || [];
+  }
 }

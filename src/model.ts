@@ -106,7 +106,7 @@ export function attr(type: DataType, options?: any) {
  * @param type    The Sequelize data type for the attribute.
  * @param options Any extra Sequelize attribute options required.
  */
-export function assoc(type: Associations, options?: any) {
+export function assoc(type: Associations, model: typeof Model, options?: any) {
   return (target: Object, key: string | symbol) => {
     // We have to build up an array of association keys as there's no nice way to do
     // this in a type-safe manner.
@@ -115,7 +115,8 @@ export function assoc(type: Associations, options?: any) {
     keys.push(key.toString());
 
     // Define the associations options by the property/attribute key and then redefine the key list.
-    Reflect.defineMetadata(ASSOC_OPTIONS_META_KEY, _.extend({}, options, { type }), target, key);
+    options = _.extend({}, options, { as: key });
+    Reflect.defineMetadata(ASSOC_OPTIONS_META_KEY, { type, model, options }, target, key);
     Reflect.defineMetadata(MODEL_ASSOC_KEYS_META_KEY, keys, target);
   };
 }
