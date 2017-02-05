@@ -73,6 +73,28 @@ To generate API documentation from the code into the `docs` directory, run:
 npm run docs
 ```
 
+## Testing
+
+First install the library dependencies and the SQLite3 library:
+
+```sh
+npm install
+npm install sqlite3
+```
+
+To execute the test suite using SQLite as the backend, run:
+
+```sh
+npm run test
+```
+
+By default, the tests will not log the SQL queries performed to keep the output sane.
+If a test is giving particular trouble, run the tests with `LOG_TEST_SQL` turned on:
+
+```sh
+LOG_TEST_SQL=1 npm run test
+```
+
 ## License
 
 This project is licensed under the MIT license. Please see `LICENSE.md` for more details.

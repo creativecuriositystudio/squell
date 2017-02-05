@@ -1,16 +1,17 @@
 /** Contains the type-safe querying interface that wraps Sequelize queries. */
-import Bluebird from 'bluebird';
 import * as _ from 'lodash';
 import Sequelize from 'sequelize';
 import { FindOptions, WhereOptions, FindOptionsAttributesArray,
          DestroyOptions, TruncateOptions, RestoreOptions,
          CountOptions, AggregateOptions, CreateOptions, UpdateOptions,
          BulkCreateOptions, UpsertOptions, FindOrInitializeOptions,
+         IncludeOptions, Utils
        } from 'sequelize';
 
-import { Attribute, PlainAttribute } from './attribute';
+import { Attribute, PlainAttribute, AssocAttribute } from './attribute';
 import { MODEL_ATTR_KEYS_META_KEY, MODEL_ASSOC_KEYS_META_KEY,
-         ASSOC_OPTIONS_META_KEY, Model, ModelAttributes } from './model';
+         ASSOC_OPTIONS_META_KEY, Model, ModelAttributes, ModelConstructor,
+         Associations } from './model';
 import { Where } from './where';
 import { Database } from './database';
 
@@ -27,7 +28,7 @@ export const ASC: Order  = 'ASC';
 export type AttributeOrder<T> = [Attribute<T>, Order];
 
 /**
- * Query options for a Squell query, containing where, attributes, includes, order, and dropped & taken
+ * Query options for a Squell query.
  */
 export interface QueryOptions {
   /** The array of where queries for the query. */
@@ -37,7 +38,7 @@ export interface QueryOptions {
   attrs: Attribute<any>[];
 
   /** The array of association filters for the query. */
-  assocs: any[];
+  includes: IncludeOptions[],
 
   /** The array of attribute orderings for the query. */
   orderings: AttributeOrder<any>[];
@@ -59,7 +60,7 @@ export class Query<T extends Model> {
   private db: Database;
 
   /** The Squell model being queried. */
-  private model: typeof Model;
+  private model: ModelConstructor<T>;
 
   /** The internal Sequelize representation of the model. */
   private internalModel: Sequelize.Model<T, T>;
@@ -79,64 +80,74 @@ export class Query<T extends Model> {
    * @param dropped The number of records to be dropped.
    * @param taken The number of records to be taken.
    */
-  constructor(db: Database, model: typeof Model, options?: QueryOptions) {
+  constructor(db: Database, model: ModelConstructor<T>, options?: QueryOptions) {
     this.db = db;
     this.model = model;
     this.internalModel = db.getModel<T>(model);
-    this.options = options || {
+    this.options = {
       wheres: [],
       dropped: 0,
       taken: 0,
-    } as QueryOptions;
+      ... options
+    };
   }
 
   /**
    * Filter a query using a where query.
    *
-   * @param map A lambda function that will take the queried model attributes
+   * @param map A function that will take the queried model attributes
    *            and produce the where query to filter
    * @returns   The filtered query.
    */
   public where(map: (attrs: ModelAttributes<T>) => Where): Query<T> {
-      let options = _.extend({}, this.options, { wheres: this.options.wheres.concat(map(this.getModelAttrs())) });
-
-      return new Query<T>(this.db, this.model, options);
-  }
-
-  /**
-   * Select the attributes to be included in a query result.
-   *
-   * @params map A lambda function that will take the queried model attributes
-   *             and produce an array of attributes to be included.
-   * @returns The new query with the selected attributes only.
-   */
-  public attributes(map: (attrs: ModelAttributes<T>) => Attribute<any>[]): Query<T> {
-    let attrs = this.options.attrs || [];
-    let options = _.extend({}, this.options, { attrs: attrs.concat(map(this.getModelAttrs())) });
+    let options = { ... this.options, wheres: this.options.wheres.concat(map(this.getModelAttrs())) };
 
     return new Query<T>(this.db, this.model, options);
   }
 
   /**
-   * Select the associatied models to include any association models in the query.
+   * Select the attributes to be included in a query result.
    *
-   * @param map A lambda function that will take the queried model attributes
-   *            and produce the where query to filter using.
-   * @returns   The filtered query.
+   * @params map A function that will take the queried model attributes
+   *             and produce an array of attributes to be included.
+   * @returns The new query with the selected attributes only.
    */
-  public include<U extends Model>(model: typeof Model, attr: (attrs: ModelAttributes<T>) => Attribute<any>, query?: (query: Query<U>) => Query<U>): Query<T> {
-    let assocs = this.options.assocs || [];
+  public attributes(map: (attrs: ModelAttributes<T>) => Attribute<any>[]): Query<T> {
+    let attrs = this.options.attrs || [];
+    let options = { ... this.options, attrs: attrs.concat(map(this.getModelAttrs())) };
 
-    let assocKey = attr(this.getModelAssocs()).compileRight();
-    let assocOptions = this.getModelAssocOptions(assocKey);
+    return new Query<T>(this.db, this.model, options);
+  }
 
+  /**
+   * Eager load an association model with the query.
+   * An optional function can be provided to change the query on the association
+   * model in order to do things like where queries on association query.
+   *
+   * @param map A function that will take the queried model attributes
+   *            and produce the attribute the association is under.
+   * @param query A function that will take the default query on the association model
+   *              and return a custom one, i.e. allows for adding where queries
+   *              to the association query.
+   * @returns The eagerly-loaded query.
+   */
+  public include<U extends Model>(model: ModelConstructor<U>, attr: (attrs: ModelAttributes<T>) => Attribute<any>,
+                                  query?: (query: Query<U>) => Query<U>): Query<T> {
+    let includes = this.options.includes || [];
+    let assocKey = attr(this.getModelAttrs()).compileLeft();
     let includeOptions = {
       model: this.db.getModel(model),
       as: assocKey,
     };
-    if (query) includeOptions = _.extend({}, query(new Query<U>(this.db, model)).compileFindOptions(), includeOptions);
 
-    let options = _.extend({}, this.options, { assocs: assocs.concat([includeOptions]) });
+    if (query) {
+      includeOptions = {
+          ... query(new Query<U>(this.db, model)).compileFindOptions(),
+          ... includeOptions
+      };
+    }
+
+    let options = { ... this.options, includes: includes.concat([includeOptions]) };
 
     return new Query<T>(this.db, this.model, options);
   }
@@ -144,13 +155,13 @@ export class Query<T extends Model> {
   /**
    * Order the future results of a query.
    *
-   * @params map A lambda function that will take the queried model attributes
+   * @params map A function that will take the queried model attributes
    *             and produce an array of attribute orders for the result to be ordered by.
    * @returns    The ordered query.
    */
   public order(map: (attrs: ModelAttributes<T>) => AttributeOrder<any>[]): Query<T> {
     let orderings = this.options.orderings || [];
-    let options = _.extend({}, this.options, { orderings: orderings.concat(map(this.getModelAttrs())) });
+    let options = { ... this.options, orderings: orderings.concat(map(this.getModelAttrs())) };
 
     return new Query<T>(this.db, this.model, options);
   }
@@ -160,8 +171,8 @@ export class Query<T extends Model> {
    * This essentially increases the OFFSET amount,
    * and will only affect the find and findOne queries.
    */
-  public drop(num: number) {
-    let options = _.extend({}, this.options, { dropped: this.options.dropped + num });
+  public drop(num: number): Query<T> {
+    let options = { ... this.options, dropped: this.options.dropped + num };
 
     return new Query<T>(this.db, this.model, options);
   }
@@ -171,8 +182,8 @@ export class Query<T extends Model> {
    * This increases the LIMIT amount and will affect find,
    * findOne, restore, destroy, aggregation and updates.
    */
-  public take(num: number) {
-    let options = _.extend({}, this.options, { taken: this.options.taken + num });
+  public take(num: number): Query<T> {
+    let options = { ... this.options, taken: this.options.taken + num };
 
     return new Query<T>(this.db, this.model, options);
   }
@@ -183,8 +194,8 @@ export class Query<T extends Model> {
    * @param options Any extra Sequelize find options required.
    * @returns A promise that resolves to a list of found instances if successful.
    */
-  public find(options?: FindOptions): Bluebird<T[]> {
-    return this.internalModel.findAll(_.extend({}, options, this.compileFindOptions()));
+  public find(options?: FindOptions): Promise<T[]> {
+    return Promise.resolve(this.internalModel.findAll({ ... options, ... this.compileFindOptions() }));
   }
 
   /**
@@ -193,8 +204,8 @@ export class Query<T extends Model> {
    * @param options Any extra Sequelize find options required.
    * @returns A promise that resolves to the found instance if successful.
    */
-  public findOne(options?: FindOptions): Bluebird<T> {
-    return this.internalModel.findOne(_.extend({}, options, this.compileFindOptions()));
+  public findOne(options?: FindOptions): Promise<T> {
+    return Promise.resolve(this.internalModel.findOne({ ... options, ... this.compileFindOptions() }));
   }
 
   /**
@@ -202,8 +213,8 @@ export class Query<T extends Model> {
    *
    * @returns A promise that resolves when the model table has been truncated.
    */
-  public truncate(): Bluebird<void> {
-    return this.internalModel.truncate();
+  public truncate(): Promise<void> {
+    return Promise.resolve(this.internalModel.truncate());
   }
 
   /**
@@ -214,8 +225,10 @@ export class Query<T extends Model> {
    * @param options Any extra Sequelize restore options required.
    * @returns A promise that resolves when the instances have been restored successfully.
    */
-  public restore(options?: RestoreOptions): Bluebird<void> {
-    return this.internalModel.restore(_.extend({}, options, {
+  public restore(options?: RestoreOptions): Promise<void> {
+    return Promise.resolve(this.internalModel.restore({
+      ... options,
+
       where: this.compileWheres(),
       limit: this.options.taken > 0 ? this.options.taken : undefined,
     }));
@@ -229,8 +242,10 @@ export class Query<T extends Model> {
    * @param options Any extra Sequelize destroy options required.
    * @returns A promise that resolves when the instances have been destroyed successfully.
    */
-  public destroy(options?: DestroyOptions): Bluebird<number> {
-    return this.internalModel.destroy(_.extend({}, options, {
+  public destroy(options?: DestroyOptions): Promise<number> {
+    return Promise.resolve(this.internalModel.destroy({
+      ... options,
+
       where: this.compileWheres(),
       limit: this.options.taken > 0 ? this.options.taken : undefined,
     }));
@@ -243,8 +258,10 @@ export class Query<T extends Model> {
    * @param options Any extra Sequelize count options required.
    * @returns A promise that resolves with the number of records found if successful.
    */
-  public count(options?: CountOptions): Bluebird<number> {
-    return this.internalModel.count(_.extend({}, options, {
+  public count(options?: CountOptions): Promise<number> {
+    return Promise.resolve(this.internalModel.count({
+      ... options,
+
       where: this.compileWheres(),
     }));
   }
@@ -259,8 +276,10 @@ export class Query<T extends Model> {
    * @returns A promise that resolves with the aggregation value if successful.
    */
   public aggregate(fn: string, map: (attrs: ModelAttributes<T>) => Attribute<any>,
-                   options?: AggregateOptions): Bluebird<any> {
-    return this.internalModel.aggregate(map(this.getModelAttrs()).compileLeft(), fn, _.extend({}, options, {
+                   options?: AggregateOptions): Promise<any> {
+    return Promise.resolve(this.internalModel.aggregate(map(this.getModelAttrs()).compileLeft(), fn, {
+      ... options,
+
       where: this.compileWheres(),
       limit: this.options.taken > 0 ? this.options.taken : undefined,
     }));
@@ -275,8 +294,8 @@ export class Query<T extends Model> {
    * @returns A promise that resolves with the aggregation value if successful.
    */
   public min(map: (attrs: ModelAttributes<T>) => Attribute<any>,
-             options?: AggregateOptions): Bluebird<any> {
-    return this.aggregate('min', map, options);
+             options?: AggregateOptions): Promise<any> {
+               return Promise.resolve(this.aggregate('min', map, options));
   }
 
   /**
@@ -288,8 +307,8 @@ export class Query<T extends Model> {
    * @returns A promise that resolves with the aggregation value if successful.
    */
   public max(map: (attrs: ModelAttributes<T>) => Attribute<any>,
-             options?: AggregateOptions): Bluebird<any> {
-    return this.aggregate('max', map, options);
+             options?: AggregateOptions): Promise<any> {
+    return Promise.resolve(this.aggregate('max', map, options));
   }
 
   /**
@@ -301,8 +320,8 @@ export class Query<T extends Model> {
    * @returns A promise that resolves with the aggregation value if successful.
    */
   public sum(map: (attrs: ModelAttributes<T>) => Attribute<any>,
-             options?: AggregateOptions): Bluebird<any> {
-    return this.aggregate('sum', map, options);
+             options?: AggregateOptions): Promise<any> {
+    return Promise.resolve(this.aggregate('sum', map, options));
   }
 
   /**
@@ -311,25 +330,84 @@ export class Query<T extends Model> {
    * hence you will need to build the query using the eq attribute
    * method so that the instance is built with the right attribute values.
    *
+   * This *will not* update any associations.
+   *
    * @param options Any extra Sequelize find or initialize options required.
    * @returns A promise that resolves with the found/created instance and
    *          a bool that is true when an instance was created.
    */
-  public findOrCreate(options?: FindOrInitializeOptions<T>): Bluebird<[T, boolean]> {
-    return this.internalModel.findOrCreate(_.extend({}, options, {
+  public findOrCreate(options?: FindOrInitializeOptions<T>): Promise<[T, boolean]> {
+    return Promise.resolve(this.internalModel.findOrCreate({
+      ... options,
+
       where: this.compileWheres(),
     }));
   }
 
   /**
+   * A helper function that removes any association
+   * values from a model instance.
+   *
+   * @param model The model instance to strip.
+   * @returns The stripped model instance.
+   */
+  private stripAssociations(model: T): T {
+    let assocKeys: string[] = Reflect.getMetadata(MODEL_ASSOC_KEYS_META_KEY, this.model.prototype);
+
+    return _.omit(model, assocKeys) as T;
+  }
+
+  /**
+   * A helper function that inspects any association
+   * values on a model instance and updates them if
+   * required.
+   *
+   * @param model The model instance to associate.
+   * @returns A promise that associates the instance.
+   */
+  private async associate(model: T, data: {}): Promise<void> {
+    let modelData = model as {};
+    let assocs = this.db.getModelAssociations(this.model);
+    let includes = this.options.includes || [];
+
+    for (let include of includes) {
+      let key = include.as;
+      let assoc = assocs[key];
+      let assocValue = data[key];
+
+      // This is the same across all associations.
+      let method = modelData['set' + Utils.uppercaseFirst(key)];
+
+      if (!method) {
+        continue;
+      }
+
+      method = method.bind(model);
+
+      if (!assocValue) {
+        await method(undefined);
+      } else {
+        await method(include.model.build(assocValue));
+      }
+    }
+  }
+
+  /**
    * Creates a model instance in the database.
+   *
+   * Associations will be updated if they have been included before hand.
    *
    * @param model The model instance to create.
    * @param option Any extra Sequelize create options required.
    * @returns A promise that resolves with the created instance if successful.
    */
-  public create(model: T, options?: CreateOptions): Bluebird<T> {
-    return this.internalModel.create(model, options);
+  public async create(model: T, options?: CreateOptions): Promise<T> {
+    let data = _.clone(model);
+    let instance = await Promise.resolve(this.internalModel.create(this.stripAssociations(model) as T, options));
+
+    await this.associate(instance, data);
+
+    return instance;
   }
 
   /**
@@ -339,12 +417,24 @@ export class Query<T extends Model> {
    * If you want those values, you should re-query the database
    * once the bulk create has succeeded.
    *
+   * Associations will be updated if they have been included before hand.
+   *
    * @param models The array of model instances to create.
    * @param options Any extra Sequelize bulk create options required.
    * @returns The array of instances created. See above.
    */
-  public bulkCreate(models: T[], options?: BulkCreateOptions): Bluebird<T[]> {
-    return this.internalModel.bulkCreate(models, options);
+  public async bulkCreate(models: T[], options?: BulkCreateOptions): Promise<T[]> {
+    let self = this;
+    let data = _.clone(models);
+    let instances = await Promise.resolve(
+      this.internalModel.bulkCreate(_.map(models, m => self.stripAssociations(m)), options)
+    );
+
+    for (let [i, instance] of _.toPairs(instances)) {
+      await this.associate(instance, data[i]);
+    }
+
+    return instances;
   }
 
   /**
@@ -353,18 +443,38 @@ export class Query<T extends Model> {
    * means that all of the model properties are optional - and
    * if there's not defined, they won't be updated.
    *
-   * This can update multiple instances if the query isn't specific enough.
+   * Associations will be updated if they have been included before hand.
+   * This can also update multiple instances.
    *
    * @param model The model partial to update using.
    * @param options Any extra Sequelize update options required.
    * @return A promise that resolves to a tuple with the number of instances updated and
    *         an array of the instances updated, if successful.
    */
-  public update(model: Partial<T>, options?: UpdateOptions): Bluebird<[number, T[]]> {
-    return this.internalModel.update(model as T, _.extend({}, options, {
+  public async update(model: Partial<T>, options?: UpdateOptions): Promise<[number, T[]]> {
+    let data = _.clone(model);
+    let includes = this.options.includes || [];
+
+    let [num, instances] = await Promise.resolve(this.internalModel.update(this.stripAssociations(model as T), {
+      ... options,
+
       where: this.compileWheres(),
       limit: this.options.taken > 0 ? this.options.taken : undefined,
     }));
+
+    // FIXME: The instance return value is only supported in Postgres,
+    // so we findAll here to emulate this on other databases.
+    // Could be detrimental to performance.
+    instances = await Promise.resolve(this.internalModel.findAll({
+      where: this.compileWheres(),
+      limit: this.options.taken > 0 ? this.options.taken : undefined,
+    }));
+
+    for (let instance of instances) {
+      await this.associate(instance, data);
+    }
+
+    return [num, instances];
   }
 
   /**
@@ -375,12 +485,18 @@ export class Query<T extends Model> {
    * attributes are optional and non-defined ones will be excluded from
    * the query/insertion.
    *
+   * This *will not* update any associations.
+   *
    * @param model The model partial to upsert using.
    * @param options Any extra Sequelize upsert options required.
    * @returns A promise that will upsert and contain true if an instance was inserted.
    */
-  public upsert(model: Partial<T>, options?: UpsertOptions): Bluebird<boolean> {
-    return this.internalModel.upsert(model as T, options);
+  public upsert(model: Partial<T>, options?: UpsertOptions): Promise<boolean> {
+    return Promise.resolve(this.internalModel.upsert(model as T, {
+      ... options,
+
+      includes: this.compileIncludes()
+    }));
   }
 
   /**
@@ -390,38 +506,18 @@ export class Query<T extends Model> {
    */
   protected getModelAttrs(): ModelAttributes<T> {
     let attrs = {};
-    let keys: string[] = Reflect.getMetadata(MODEL_ATTR_KEYS_META_KEY, this.model.prototype);
+    let attrKeys: string[] = Reflect.getMetadata(MODEL_ATTR_KEYS_META_KEY, this.model.prototype);
+    let assocKeys: string[] = Reflect.getMetadata(MODEL_ASSOC_KEYS_META_KEY, this.model.prototype);
 
-    for (let key of keys) {
+    for (let key of attrKeys) {
       attrs[key] = new PlainAttribute(key);
     }
 
-    return attrs as ModelAttributes<T>;
-  }
-
-  /**
-   * Gets the model associations object from the model being queried.
-   *
-   * @returns The model associations object.
-   */
-  protected getModelAssocs(): ModelAttributes<T> {
-    let attrs = {};
-    let keys: string[] = Reflect.getMetadata(MODEL_ASSOC_KEYS_META_KEY, this.model.prototype);
-
-    for (let key of keys) {
-      attrs[key] = new PlainAttribute(key);
+    for (let key of assocKeys) {
+      attrs[key] = new AssocAttribute(key);
     }
 
     return attrs as ModelAttributes<T>;
-  }
-
-  /**
-   * Gets a association's options (target model etc.) from the model being queried.
-   *
-   * @returns The association's options.
-   */
-  protected getModelAssocOptions(key: string): any {
-    return Reflect.getMetadata(ASSOC_OPTIONS_META_KEY, this.model.prototype);
   }
 
   /**
@@ -438,8 +534,8 @@ export class Query<T extends Model> {
       options.attributes = this.compileAttributes();
     }
 
-    if (this.options.assocs) {
-      //options.include = this.compileIncludes();
+    if (this.options.includes) {
+      options.include = this.compileIncludes();
     }
 
     if (this.options.orderings) {
@@ -490,6 +586,6 @@ export class Query<T extends Model> {
    * @returns The Sequelize representation.
    */
   public compileIncludes(): any {
-    return this.options.assocs || [];
+    return this.options.includes || [];
   }
 }
