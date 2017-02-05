@@ -3,9 +3,14 @@ import * as _ from 'lodash';
 import 'reflect-metadata';
 import { DataTypeAbstract as DataType, DataTypes,
          DefineOptions, DefineAttributeColumnOptions,
-         INTEGER } from 'sequelize';
+         AssociationOptionsBelongsTo, AssociationOptionsBelongsToMany,
+         AssociationOptionsHasMany, AssociationOptionsHasOne,
+         ValidationError as SequelizeValidationError
+       } from 'sequelize';
 
 import { Attribute } from './attribute';
+import { Database } from './database';
+import { Query } from './query';
 
 export { DataTypeAbstract as DataType,
          ABSTRACT, STRING, CHAR, TEXT, NUMBER,
@@ -16,9 +21,14 @@ export { DataTypeAbstract as DataType,
          ENUM, RANGE, REAL, DOUBLE, GEOMETRY,
        } from 'sequelize';
 
-export enum Associations { HAS_ONE, HAS_MANY, BELONGS_TO, BELONGS_TO_MANY };
+export enum Associations {
+  HAS_ONE,
+  HAS_MANY,
+  BELONGS_TO,
+  BELONGS_TO_MANY
+};
 
-// promote association types to top level so they are usable as squell.HAS_ONE, like normal attr types
+// Promote association types to top level so they are usable as squell.HAS_ONE, like normal attr types.
 export const HAS_ONE = Associations.HAS_ONE;
 export const HAS_MANY = Associations.HAS_MANY;
 export const BELONGS_TO = Associations.BELONGS_TO;
@@ -32,7 +42,89 @@ export const BELONGS_TO_MANY = Associations.BELONGS_TO_MANY;
  * and the model could be defined and queried on them separately.
  */
 export abstract class Model {
+  /**
+   * Saves any changes to the model instance and returns the updated instance.
+   * If the model didn't already exist in the database (i.e. its primary key
+   * wasn't set) then it will create, otherwise update.
+   */
+  async save<T extends Model>(db: Database, subquery?: (query: Query<T>) => Query<T>): Promise<T> {
+    // FIXME: This is hacky, but seems to be the only way to cast to T (even though it extends model..)
+    let model = (this as any) as T;
+
+    let constructor = this.constructor as ModelConstructor<T>;
+    let primary = db.getModelPrimary(constructor);
+    let primaryValue = (this as {})[primary.compileLeft()];
+    let query = db.query(constructor);
+
+    if (subquery) {
+      query = subquery(query);
+    }
+
+    if (primaryValue) {
+      query = query.where(m => primary.eq(primaryValue));
+
+      return model;
+    }
+
+    return query.create(model);
+  }
 }
+
+/**
+ * Our version of the Sequelize validation error.
+ * This has a mapped type, so all the properties on the model
+ * are guaranteed to have an array of errors.
+ */
+export class ValidationError<T extends Model> extends Error {
+  ctor: ModelConstructor<T>;
+  errors: ModelErrors<T>;
+
+  /**
+   * Construct a validation error.
+   *
+   * @param ctor The model constructor this error is for.
+   * @param message The error message.
+   * @param err The model errors with all of the validation errors on it.
+   */
+  constructor(ctor: ModelConstructor<T>, message: string, errors: ModelErrors<T>) {
+    super(message);
+
+    this.name = 'ValidationError';
+    this.stack = new Error().stack;
+    this.ctor = ctor;
+    this.errors = errors;
+  }
+
+  /**
+   * Coerce a Sequelize validation error into our type-safe form.
+   *
+   * @param ctor The model constructor.
+   * @param err The Sequelize validation error.
+   * @returns The coerced Squell validation error.
+   */
+  static coerce<T extends Model>(ctor: ModelConstructor<T>, err: SequelizeValidationError): ValidationError<T> {
+    let errors = {};
+    let attrKeys: string[] = Reflect.getMetadata(MODEL_ATTR_KEYS_META_KEY, ctor.prototype);
+    let assocKeys: string[] = Reflect.getMetadata(MODEL_ASSOC_KEYS_META_KEY, ctor.prototype);
+
+    // Get all the errors for the specific attribute.
+    for (let key of attrKeys) {
+      errors[key] = _.map(err.get(key), item => {
+        return _.pick(item, ['message', 'value']);
+      });
+    }
+
+    // Just set empty. We don't validate associations (yet).
+    for (let key of assocKeys) {
+      errors[key] = [];
+    }
+
+    return new ValidationError<T>(ctor, err.message, errors as ModelErrors<T>);
+  }
+}
+
+/** A value that is both a class value and something that can construct a model. */
+export type ModelConstructor<T extends Model> = typeof Model & { new(): T };
 
 /**
  * A mapped type that maps all of a model type's
@@ -41,6 +133,20 @@ export abstract class Model {
  */
 export type ModelAttributes<T extends Model> = {
   [P in keyof T]?: Attribute<T[P]>;
+};
+
+/** A error on a specific model attribute. */
+export interface AttributeError {
+  message: string;
+  value: string;
+}
+
+/**
+ * A mapped type that maps all of a model type's
+ * attributes to an array of validation errors.
+ */
+export type ModelErrors<T extends Model> = {
+  [P in keyof T]?: AttributeError[];
 };
 
 /** The meta key for a model's options on a model class. */
@@ -68,7 +174,7 @@ export const ASSOC_OPTIONS_META_KEY = 'assocOptions';
  *                  unless a table name is provided.
  * @param options   Any extra Sequelize model options required.
  */
-export function model(modelName: string, options?: any) {
+export function model(modelName: string, options?: Partial<DefineOptions<any>>) {
   return Reflect.metadata(MODEL_OPTIONS_META_KEY, _.extend({}, options, { modelName }));
 }
 
@@ -76,46 +182,57 @@ export function model(modelName: string, options?: any) {
  * A decorator for model attributes to specify attr type and attr properties.
  * This must be used on any model attribute that should be synchronised to the database.
  * These attributes can then be used in type-safe Squell queries.
- * Any attributes that do not used this decorator during definition will not be able
+ * Any attributes that do not use this decorator during definition will not be able
  * to be queried using Squell.
  *
  * @param type    The Sequelize data type for the attribute.
  * @param options Any extra Sequelize attribute options required.
  */
-export function attr(type: DataType, options?: any) {
+export function attr(type: DataType, options?: Partial<DefineAttributeColumnOptions>) {
   return (target: Object, key: string | symbol) => {
     // We have to build up an array of attribute keys as there's no nice way to do
     // this in a type-safe manner.
     // Default to an empty array in the case this is the first attribute being defined.
     let keys: string[] = Reflect.getMetadata(MODEL_ATTR_KEYS_META_KEY, target) || [];
+
     keys.push(key.toString());
 
     // Define the attribute options by the property/attribute key and then redefine the key list.
-    Reflect.defineMetadata(ATTR_OPTIONS_META_KEY, _.extend({}, options, { type }), target, key);
+    Reflect.defineMetadata(ATTR_OPTIONS_META_KEY, { ... options, type }, target, key);
     Reflect.defineMetadata(MODEL_ATTR_KEYS_META_KEY, keys, target);
   };
 }
 
 /**
  * A decorator for model attributes to signify a association to another model.
- * This must be used on any model attribute that should be synchronised to the database.
- * These attributes can then be used in type-safe Squell queries.
- * Any attributes that do not used this decorator during definition will not be able
+ * This must be used on any model association that should be synchronised to the database.
+ * These associations can then be used in type-safe Squell queries as if they were a regular attribute.
+ * Any associations that do not use this decorator during definition will not be able
  * to be queried using Squell.
+ *
+ * Note that Squell enforces the behaviour of the as property of the association (the alias)
+ * always being the same as the name of the property the association was defined on.
+ * This can't be changed.
  *
  * @param type    The Sequelize data type for the attribute.
  * @param options Any extra Sequelize attribute options required.
  */
-export function assoc(type: Associations, model: typeof Model, options?: any) {
+export function assoc(type: Associations, model: typeof Model,
+                      options?: Partial<AssociationOptionsHasOne    |
+                                        AssociationOptionsBelongsTo |
+                                        AssociationOptionsHasMany   |
+                                        AssociationOptionsBelongsToMany>) {
   return (target: Object, key: string | symbol) => {
     // We have to build up an array of association keys as there's no nice way to do
     // this in a type-safe manner.
     // Default to an empty array in the case this is the first attribute being defined.
     let keys: string[] = Reflect.getMetadata(MODEL_ASSOC_KEYS_META_KEY, target) || [];
+
     keys.push(key.toString());
 
     // Define the associations options by the property/attribute key and then redefine the key list.
-    options = _.extend({}, options, { as: key });
+    options = { ... options, as: key.toString() };
+
     Reflect.defineMetadata(ASSOC_OPTIONS_META_KEY, { type, model, options }, target, key);
     Reflect.defineMetadata(MODEL_ASSOC_KEYS_META_KEY, keys, target);
   };

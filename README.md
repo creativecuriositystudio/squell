@@ -73,12 +73,37 @@ To generate API documentation from the code into the `docs` directory, run:
 npm run docs
 ```
 
+## Testing
+
+First install the library dependencies and the SQLite3 library:
+
+```sh
+npm install
+npm install sqlite3
+```
+
+To execute the test suite using SQLite as the backend, run:
+
+```sh
+npm run test
+```
+
+By default, the tests will not log the SQL queries performed to keep the output sane.
+If a test is giving particular trouble, run the tests with `LOG_TEST_SQL` turned on
+to inspect the generated SQL queries:
+
+```sh
+LOG_TEST_SQL=1 npm run test
+```
+
 ## License
 
 This project is licensed under the MIT license. Please see `LICENSE.md` for more details.
 
 ## Limitations
 
-* Squell doesn't currently support defining or querying relationships. This is next on the roadmap.
+* Calling update will do both an `update` and `findAll` call instead of just the single update call. This is because relationships have to be automatically assigned by Squell, which requires the updated instance model.
+* Associations will always be updated every `create`/`update` call, even if the association hasn't changed. These associations will only be updated if an `include` for that association model has be set, however.
+* `bulkCreate` cannot create objects with relationships.
 * Models must always be direct subclasses of the abstract model class. Unfortunately there does not appear
   to be a way to inherit attributes decorated in a parent class yet.

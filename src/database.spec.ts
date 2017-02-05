@@ -1,4 +1,4 @@
-import sequelize from 'sequelize';
+import { exist } from 'should';
 import 'should';
 
 import { Database } from './database';
@@ -28,21 +28,24 @@ describe('Database', () => {
   describe('#define', () => {
     it('should generate models', () => {
       let options = db.getModelOptions(Actor);
+
       options.modelName.should.equal('actor');
-      return options.tableName.should.equal('actors');
+      options.tableName.should.equal('actors');
     });
 
     it('should generate model attributes', () => {
-      // TODO actually check the sequelize model for proof
-      let attrs = db.getModelAttributes(Actor);
-      attrs.name.should.exist;
+      // TODO: Actually check the sequelize model for proof
+      let attrs = db.getModelAttributes(Actor) as {};
+
+      exist(attrs['name']);
     });
 
     it('should generate model associations', () => {
-      // TODO actually check the sequelize model for proof
-      let assocs = db.getModelAssociations(Actor);
-      assocs.mentor.should.exist;
-      return assocs.mentee.should.exist;
+      // TODO: Actually check the sequelize model for proof
+      let assocs = db.getModelAssociations(Actor) as {};
+
+      assocs['mentee'].should.have.value('type', squell.HAS_ONE);
+      assocs['mentor'].should.have.value('type', squell.BELONGS_TO);
     });
   });
 });

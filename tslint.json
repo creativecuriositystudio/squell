@@ -9,6 +9,9 @@
     "ordered-imports": false,
     "member-ordering": false,
     "object-literal-sort-keys": false,
-    "trailing-comma": false
+    "trailing-comma": false,
+    "no-string-literal": false,
+    "member-access": false,
+    "switch-default": false
   }
 }

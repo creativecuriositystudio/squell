@@ -1,6 +1,6 @@
 {
   "name": "squell",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "main": "dist/index.js",
   "bugs": "https://github.com/creativecuriositystudio/squell/issues",
   "keywords": ["sequelize", "postgres", "mysql", "sqlite", "orm", "typescript"],
@@ -22,6 +22,7 @@
   "author": "Zack Corr <zack@z0w0.me>",
   "devDependencies": {
     "@types/mocha": "^2.2.33",
+    "@types/should": "^8.1.30",
     "mocha": "^3.2.0",
     "should": "^11.1.2",
     "sqlite": "^2.2.4",
@@ -30,12 +31,9 @@
     "typedoc": "^0.5.1"
   },
   "dependencies": {
-    "@types/bluebird": "^3.0.36",
     "@types/lodash": "^4.14.41",
     "@types/reflect-metadata": "0.0.5",
     "@types/sequelize": "^4.0.39",
-    "@types/should": "^8.1.30",
-    "bluebird": "^3.0.6",
     "lodash": "^4.17.2",
     "reflect-metadata": "^0.1.8",
     "sequelize": "^4.0.0-2",

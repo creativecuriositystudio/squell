@@ -542,3 +542,12 @@ export class AliasAttribute<T> extends Attribute<T> {
     throw new SyntaxError('An aliased attribute cannot be used as a left operator in a Squell query');
   }
 }
+
+/**
+ * An attribute representing an association attribute.
+ * This is the same as a plain attribute for now,
+ * but may be used for something different in the future.
+ */
+export class AssocAttribute<T> extends PlainAttribute<T> {
+
+}

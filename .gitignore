@@ -50,6 +50,7 @@ jspm_packages
 dist
 typings
 index.d.ts
+docs
 
 # Other files
-test.db
+test.db*

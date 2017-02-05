@@ -22,11 +22,13 @@ class Actor extends squell.Model {
 
   @assoc(squell.HAS_ONE, Actor)
   public mentee: Actor;
+
+  public mentorId: number;
 }
 
 let db = new Database('sqlite://root:root@localhost/squell_test', {
   storage: 'test.db',
-  logging: false
+  logging: !!process.env.LOG_TEST_SQL
 });
 
 db.define(Actor);
@@ -34,7 +36,7 @@ db.define(Actor);
 describe('Query', () => {
   beforeEach(() => {
     return db.sync({ force: true })
-      .then(async (): Promise<Actor[]> => {
+      .then(async () => {
         let bruce = new Actor();
         let milla = new Actor();
         let chris = new Actor();
@@ -48,17 +50,19 @@ describe('Query', () => {
         chris.name = 'Chris Tucker';
         chris.age = 45;
 
-        //return db.query(Actor).bulkCreate([bruce, milla, chris]);
+        [bruce, milla, chris] = await db
+          .query(Actor)
+          .bulkCreate([bruce, milla, chris]);
 
-        [bruce, milla, chris] = await db.query(Actor).bulkCreate([bruce, milla, chris]);
-
-        // TODO turn this into model.save() once the function is created on model
         bruce.mentor = milla;
         milla.mentor = chris;
         chris.mentor = bruce;
-        await db.query(Actor).where(m => m.id.eq(bruce.id)).update(bruce);
-        await db.query(Actor).where(m => m.id.eq(milla.id)).update(milla);
-        return Promise.resolve(db.query(Actor).where(m => m.id.eq(chris.id)).update(chris));
+
+        await db
+          .query(Actor)
+          .where(m => m.id.eq(bruce.id))
+          .include(Actor, m => m.mentor)
+          .update(bruce);
       });
   });
 
@@ -220,7 +224,7 @@ describe('Query', () => {
 
       return db.query(Actor)
         .create(actor)
-        .then((created) => {
+        .then(created => {
           created.name.should.equal('Gary Oldman');
         });
      });
@@ -271,7 +275,7 @@ describe('Query', () => {
         .findOne()
         .then((result) => {
           result.age.should.equal(61);
-          result.should.equal(false);
+          result.mentor.name.should.equal('Milla Jojovich');
         });
     });
   });
