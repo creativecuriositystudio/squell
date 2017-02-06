@@ -22,6 +22,8 @@ class Actor extends squell.Model {
 
   @assoc(squell.HAS_ONE, Actor)
   public mentee: Actor;
+
+  public mentorId: number;
 }
 
 let db = new Database('sqlite://root:root@localhost/squell_test', {
@@ -48,14 +50,19 @@ describe('Query', () => {
         chris.name = 'Chris Tucker';
         chris.age = 45;
 
+        [bruce, milla, chris] = await db
+          .query(Actor)
+          .bulkCreate([bruce, milla, chris]);
+
         bruce.mentor = milla;
         milla.mentor = chris;
         chris.mentor = bruce;
 
-        [bruce, milla, chris] = await db
+        await db
           .query(Actor)
+          .where(m => m.id.eq(bruce.id))
           .include(Actor, m => m.mentor)
-          .bulkCreate([bruce, milla, chris]);
+          .update(bruce);
       });
   });
 

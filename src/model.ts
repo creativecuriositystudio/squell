@@ -8,6 +8,8 @@ import { DataTypeAbstract as DataType, DataTypes,
        } from 'sequelize';
 
 import { Attribute } from './attribute';
+import { Database } from './database';
+import { Query } from './query';
 
 export { DataTypeAbstract as DataType,
          ABSTRACT, STRING, CHAR, TEXT, NUMBER,
@@ -39,6 +41,32 @@ export const BELONGS_TO_MANY = Associations.BELONGS_TO_MANY;
  * and the model could be defined and queried on them separately.
  */
 export abstract class Model {
+  /**
+   * Saves any changes to the model instance and returns the updated instance.
+   * If the model didn't already exist in the database (i.e. its primary key
+   * wasn't set) then it will create, otherwise update.
+   */
+  async save<T extends Model>(db: Database, subquery?: (query: Query<T>) => Query<T>): Promise<T> {
+    // FIXME: This is hacky, but seems to be the only way to cast to T (even though it extends model..)
+    let model = (this as any) as T;
+
+    let constructor = this.constructor as ModelConstructor<T>;
+    let primary = db.getModelPrimary(constructor);
+    let primaryValue = (this as {})[primary.compileLeft()];
+    let query = db.query(constructor);
+
+    if (subquery) {
+      query = subquery(query);
+    }
+
+    if (primaryValue) {
+      query = query.where(m => primary.eq(primaryValue));
+
+      return model;
+    }
+
+    return query.create(model);
+  }
 }
 
 /** A value that is both a class value and something that can construct a model. */

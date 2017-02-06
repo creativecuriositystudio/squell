@@ -417,24 +417,18 @@ export class Query<T extends Model> {
    * If you want those values, you should re-query the database
    * once the bulk create has succeeded.
    *
-   * Associations will be updated if they have been included before hand.
+   * This *will not* update any associations.
    *
    * @param models The array of model instances to create.
    * @param options Any extra Sequelize bulk create options required.
    * @returns The array of instances created. See above.
    */
-  public async bulkCreate(models: T[], options?: BulkCreateOptions): Promise<T[]> {
+  public bulkCreate(models: T[], options?: BulkCreateOptions): Promise<T[]> {
     let self = this;
-    let data = _.clone(models);
-    let instances = await Promise.resolve(
+
+    return Promise.resolve(
       this.internalModel.bulkCreate(_.map(models, m => self.stripAssociations(m)), options)
     );
-
-    for (let [i, instance] of _.toPairs(instances)) {
-      await this.associate(instance, data[i]);
-    }
-
-    return instances;
   }
 
   /**

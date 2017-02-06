@@ -53,4 +53,4 @@ index.d.ts
 docs
 
 # Other files
-test.db
+test.db*

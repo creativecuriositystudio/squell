@@ -17,7 +17,7 @@ import { Query } from './query';
 export type ModelAttrDefinition = Partial<DefineAttributeColumnOptions>;
 
 /** The definition of a specific model association. */
-export type ModelAssocDefinition<T> = {
+export type ModelAssocDefinition<T extends Model> = {
   model: ModelConstructor<T>,
   options: any,
   type: Associations
@@ -102,7 +102,15 @@ export class Database {
     let attrs = this.getModelAttributes(model);
     let assocs = this.getModelAssociations(model);
 
-    let internalModel = this.conn.define<T, T>(name, attrs as DefineAttributes, options);
+    let internalModel = this.conn.define<T, T>(name, attrs as DefineAttributes, {
+      ... options,
+
+      instanceMethods: {
+        save: function() {
+          console.log('lol');
+        }
+      }
+    });
 
     this.models[name] = {
         model,
