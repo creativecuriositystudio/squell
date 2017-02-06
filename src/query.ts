@@ -384,10 +384,12 @@ export class Query<T extends Model> {
 
       method = method.bind(model);
 
+      // If the value looks empty, deassociate. Otherwise associate.
+      // TODO: Only change associations if they've changed.
       if (!assocValue) {
         await method(undefined);
       } else {
-        await method(include.model.build(assocValue));
+        await method(assocValue);
       }
     }
   }
