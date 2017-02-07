@@ -180,8 +180,8 @@ export class ValidationError<T extends Model> extends Error {
    */
   static coerce<T extends Model>(ctor: ModelConstructor<T>, err: SequelizeValidationError): ValidationError<T> {
     let errors = {};
-    let attrKeys: string[] = Reflect.getMetadata(MODEL_ATTR_KEYS_META_KEY, ctor.prototype);
-    let assocKeys: string[] = Reflect.getMetadata(MODEL_ASSOC_KEYS_META_KEY, ctor.prototype);
+    let attrKeys: string[] = Reflect.getMetadata(MODEL_ATTR_KEYS_META_KEY, ctor.prototype) || [];
+    let assocKeys: string[] = Reflect.getMetadata(MODEL_ASSOC_KEYS_META_KEY, ctor.prototype) || [];
 
     // Get all the errors for the specific attribute.
     for (let key of attrKeys) {

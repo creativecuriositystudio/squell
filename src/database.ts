@@ -278,7 +278,7 @@ export class Database {
   public getModelAttributes<T extends Model>(model: ModelConstructor<T>): ModelAttrDefinitions {
     // Get the list of keys and then map them into the model attributes definition
     // format Sequelize expects.
-    let keys: string[] = Reflect.getMetadata(MODEL_ATTR_KEYS_META_KEY, model.prototype);
+    let keys: string[] = Reflect.getMetadata(MODEL_ATTR_KEYS_META_KEY, model.prototype) || [];
 
     // We need model attributes.
     if (!keys) {
@@ -310,7 +310,7 @@ export class Database {
   public getModelAssociations<T extends Model>(model: ModelConstructor<T>): ModelAssocDefinitions {
     // Get the list of keys and then map them into the model attributes definition
     // format Sequelize expects.
-    let keys: string[] = Reflect.getMetadata(MODEL_ASSOC_KEYS_META_KEY, model.prototype);
+    let keys: string[] = Reflect.getMetadata(MODEL_ASSOC_KEYS_META_KEY, model.prototype) || [];
 
     return _.chain(keys)
       .map((x) => [x, Reflect.getMetadata(ASSOC_OPTIONS_META_KEY, model.prototype, x)])
