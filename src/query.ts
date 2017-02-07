@@ -526,8 +526,8 @@ export class Query<T extends Model> {
    */
   protected getModelAttrs(): ModelAttributes<T> {
     let attrs = {};
-    let attrKeys: string[] = Reflect.getMetadata(MODEL_ATTR_KEYS_META_KEY, this.model.prototype);
-    let assocKeys: string[] = Reflect.getMetadata(MODEL_ASSOC_KEYS_META_KEY, this.model.prototype);
+    let attrKeys: string[] = Reflect.getMetadata(MODEL_ATTR_KEYS_META_KEY, this.model.prototype) || [];
+    let assocKeys: string[] = Reflect.getMetadata(MODEL_ASSOC_KEYS_META_KEY, this.model.prototype) || [];
 
     for (let key of attrKeys) {
       attrs[key] = new PlainAttribute(key);
