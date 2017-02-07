@@ -296,7 +296,7 @@ export function attr(type: DataType, options?: Partial<DefineAttributeColumnOpti
  * @param validation
  * @param options Any extra Sequelize attribute options required.
  */
-export function validate(validation: Validation | ValidationFunction, options?: { msg: string, args: any }) {
+export function validate(validation: Validation | ValidationFunction, options?: { msg?: string, args?: any }) {
   return (target: Object, key: string | symbol) => {
     let validations: {} = Reflect.getMetadata(ATTR_VALIDATIONS_META_KEY, target, key) || {};
     let keys = Object.keys(validations);
