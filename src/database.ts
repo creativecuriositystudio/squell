@@ -293,7 +293,7 @@ export class Database {
           validate: Reflect.getMetadata(ATTR_VALIDATIONS_META_KEY, model.prototype, x)
         };
 
-        return [x, options]
+        return [x, options];
       })
       .fromPairs()
       .value();

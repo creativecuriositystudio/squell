@@ -311,46 +311,46 @@ export function validate(validation: Validation | ValidationFunction, options?: 
         }
       };
     } else {
-      let key;
+      let validator;
 
       switch (validation) {
-        case IS: key = 'is'; break;
-        case NOT: key = 'not'; break;
-        case IS_EMAIL: key = 'isEmail'; break;
-        case IS_URL: key = 'isUrl'; break;
-        case IS_IP: key = 'isIP'; break;
-        case IS_IPV4: key = 'isIPv4'; break;
-        case IS_IPV6: key ='isIPv6'; break;
-        case IS_ALPHA: key ='isAlpha'; break;
-        case IS_ALPHANUMERIC: key = 'isAlphanumeric'; break;
-        case IS_NUMERIC: key = 'isNumeric'; break;
-        case IS_INT: key = 'isInt'; break;
-        case IS_FLOAT: key = 'isFloat'; break;
-        case IS_DECIMAL: key = 'isDecimal'; break;
-        case IS_LOWERCASE: key = 'isLowercase'; break;
-        case IS_UPPERCASE: key = 'isUppercase'; break;
-        case NOT_EMPTY: key = 'notEmpty'; break;
-        case EQUALS: key = 'equals'; break;
-        case CONTAINS: key = 'contains'; break;
-        case NOT_IN: key = 'notIn'; break;
-        case IS_IN: key = 'isIn'; break;
-        case NOT_CONTAINS: key = 'notContains'; break;
-        case LEN: key = 'len'; break;
-        case IS_UUID: key = 'isUUID'; break;
-        case IS_DATE: key = 'isDate'; break;
-        case IS_AFTER: key = 'isAfter'; break;
-        case IS_BEFORE: key = 'isBefore'; break;
-        case MAX: key = 'max'; break;
-        case MIN: key = 'min'; break;
-        case IS_ARRAY: key = 'isArray'; break;
-        case IS_CREDIT_CARD: key = 'isCreditCard'; break;
+        case IS: validator = 'is'; break;
+        case NOT: validator = 'not'; break;
+        case IS_EMAIL: validator = 'isEmail'; break;
+        case IS_URL: validator = 'isUrl'; break;
+        case IS_IP: validator = 'isIP'; break;
+        case IS_IPV4: validator = 'isIPv4'; break;
+        case IS_IPV6: validator = 'isIPv6'; break;
+        case IS_ALPHA: validator = 'isAlpha'; break;
+        case IS_ALPHANUMERIC: validator = 'isAlphanumeric'; break;
+        case IS_NUMERIC: validator = 'isNumeric'; break;
+        case IS_INT: validator = 'isInt'; break;
+        case IS_FLOAT: validator = 'isFloat'; break;
+        case IS_DECIMAL: validator = 'isDecimal'; break;
+        case IS_LOWERCASE: validator = 'isLowercase'; break;
+        case IS_UPPERCASE: validator = 'isUppercase'; break;
+        case NOT_EMPTY: validator = 'notEmpty'; break;
+        case EQUALS: validator = 'equals'; break;
+        case CONTAINS: validator = 'contains'; break;
+        case NOT_IN: validator = 'notIn'; break;
+        case IS_IN: validator = 'isIn'; break;
+        case NOT_CONTAINS: validator = 'notContains'; break;
+        case LEN: validator = 'len'; break;
+        case IS_UUID: validator = 'isUUID'; break;
+        case IS_DATE: validator = 'isDate'; break;
+        case IS_AFTER: validator = 'isAfter'; break;
+        case IS_BEFORE: validator = 'isBefore'; break;
+        case MAX: validator = 'max'; break;
+        case MIN: validator = 'min'; break;
+        case IS_ARRAY: validator = 'isArray'; break;
+        case IS_CREDIT_CARD: validator = 'isCreditCard'; break;
       }
 
-      if (!key) {
+      if (!validator) {
         return;
       }
 
-      validations[key] = options || true;
+      validations[validator] = options || true;
     }
 
     // Redefine the validations with the new one added.

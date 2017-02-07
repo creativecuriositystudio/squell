@@ -1,6 +1,6 @@
 {
   "name": "squell",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "main": "dist/index.js",
   "bugs": "https://github.com/creativecuriositystudio/squell/issues",
   "keywords": ["sequelize", "postgres", "mysql", "sqlite", "orm", "typescript"],

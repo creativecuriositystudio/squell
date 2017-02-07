@@ -15,7 +15,7 @@ class Actor extends squell.Model {
   @attr(squell.STRING)
   public name: string;
 
-  @validate(v => v != 69)
+  @validate(v => v !== 69)
   @attr(squell.INTEGER)
   public age: number;
 
@@ -240,7 +240,7 @@ describe('Query', () => {
 
       return db.query(Actor)
         .create(actor)
-        .then(actor => {
+        .then(result => {
           return Promise.reject(new Error('Should never resolve'));
         })
         .catch((err: squell.ValidationError<Actor>) => {
@@ -276,7 +276,7 @@ describe('Query', () => {
       return db.query(Actor)
         .where(m => m.name.eq('Bruce Willis'))
         .update(actor)
-        .then(actor => {
+        .then(result => {
           return Promise.reject('Should never resolve');
         })
         .catch((err: squell.ValidationError<Actor>) => {
