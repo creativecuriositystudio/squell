@@ -21,7 +21,8 @@ export { DataTypeAbstract as DataType,
          ENUM, RANGE, REAL, DOUBLE, GEOMETRY,
        } from 'sequelize';
 
-export enum Associations {
+/** A type of association between models. */
+export enum Association {
   HAS_ONE,
   HAS_MANY,
   BELONGS_TO,
@@ -29,10 +30,85 @@ export enum Associations {
 };
 
 // Promote association types to top level so they are usable as squell.HAS_ONE, like normal attr types.
-export const HAS_ONE = Associations.HAS_ONE;
-export const HAS_MANY = Associations.HAS_MANY;
-export const BELONGS_TO = Associations.BELONGS_TO;
-export const BELONGS_TO_MANY = Associations.BELONGS_TO_MANY;
+export const HAS_ONE = Association.HAS_ONE;
+export const HAS_MANY = Association.HAS_MANY;
+export const BELONGS_TO = Association.BELONGS_TO;
+export const BELONGS_TO_MANY = Association.BELONGS_TO_MANY;
+
+/* A type of validation on a model. */
+export enum Validation {
+  IS,
+  NOT,
+  IS_EMAIL,
+  IS_URL,
+  IS_IP,
+  IS_IPV4,
+  IS_IPV6,
+  IS_ALPHA,
+  IS_ALPHANUMERIC,
+  IS_NUMERIC,
+  IS_INT,
+  IS_FLOAT,
+  IS_DECIMAL,
+  IS_LOWERCASE,
+  IS_UPPERCASE,
+  NOT_EMPTY,
+  EQUALS,
+  CONTAINS,
+  NOT_IN,
+  IS_IN,
+  NOT_CONTAINS,
+  LEN,
+  IS_UUID,
+  IS_DATE,
+  IS_AFTER,
+  IS_BEFORE,
+  MAX,
+  MIN,
+  IS_ARRAY,
+  IS_CREDIT_CARD
+}
+
+// Promote the validation types too.
+export const IS = Validation.IS;
+export const NOT = Validation.NOT;
+export const IS_EMAIL = Validation.IS_EMAIL;
+export const IS_URL = Validation.IS_URL;
+export const IS_IP = Validation.IS_IP;
+export const IS_IPV4 = Validation.IS_IPV4;
+export const IS_IPV6 = Validation.IS_IPV6;
+export const IS_ALPHA = Validation.IS_ALPHA;
+export const IS_ALPHANUMERIC = Validation.IS_ALPHANUMERIC;
+export const IS_NUMERIC = Validation.IS_NUMERIC;
+export const IS_INT = Validation.IS_INT;
+export const IS_FLOAT = Validation.IS_FLOAT;
+export const IS_DECIMAL = Validation.IS_DECIMAL;
+export const IS_LOWERCASE = Validation.IS_LOWERCASE;
+export const IS_UPPERCASE = Validation.IS_UPPERCASE;
+export const NOT_EMPTY = Validation.NOT_EMPTY;
+export const EQUALS = Validation.EQUALS;
+export const CONTAINS = Validation.CONTAINS;
+export const NOT_IN = Validation.NOT_IN;
+export const IS_IN = Validation.IS_IN;
+export const NOT_CONTAINS = Validation.NOT_CONTAINS;
+export const LEN = Validation.LEN;
+export const IS_UUID = Validation.IS_UUID;
+export const IS_DATE = Validation.IS_DATE;
+export const IS_AFTER = Validation.IS_AFTER;
+export const IS_BEFORE = Validation.IS_BEFORE;
+export const MAX = Validation.MAX;
+export const MIN = Validation.MIN;
+export const IS_ARRAY = Validation.IS_ARRAY;
+export const IS_CREDIT_CARD = Validation.IS_CREDIT_CARD;
+
+/**
+ * A custom validation function that can be used to validate
+ * an attribute.
+ */
+export interface ValidationFunction {
+  /** Validate a value for an attribute. */
+  (value: any): boolean;
+}
 
 /**
  * The abstract model class.
@@ -119,7 +195,11 @@ export class ValidationError<T extends Model> extends Error {
       errors[key] = [];
     }
 
-    return new ValidationError<T>(ctor, err.message, errors as ModelErrors<T>);
+    let coercedErr = new ValidationError<T>(ctor, err.message, errors as ModelErrors<T>);
+
+    coercedErr.stack = err.stack;
+
+    return coercedErr;
   }
 }
 
@@ -158,6 +238,9 @@ export const MODEL_ATTR_KEYS_META_KEY = 'modelAttrKeys';
 /** The meta key for an attribute's options, on a specific property. */
 export const ATTR_OPTIONS_META_KEY = 'attrOptions';
 
+/** The meta key for an attribute's validations, on a specific property. */
+export const ATTR_VALIDATIONS_META_KEY = 'attrValidations';
+
 /** The meta key for a model association key list on a model class. */
 export const MODEL_ASSOC_KEYS_META_KEY = 'modelAssocKeys';
 
@@ -179,7 +262,7 @@ export function model(modelName: string, options?: Partial<DefineOptions<any>>) 
 }
 
 /**
- * A decorator for model attributes to specify attr type and attr properties.
+ * A decorator for model attributes to specify attribute type and properties.
  * This must be used on any model attribute that should be synchronised to the database.
  * These attributes can then be used in type-safe Squell queries.
  * Any attributes that do not use this decorator during definition will not be able
@@ -204,6 +287,78 @@ export function attr(type: DataType, options?: Partial<DefineAttributeColumnOpti
 }
 
 /**
+ * A decorator for model attributes to specify validations for an attribute.
+ * A message and arguments can be provided which will be passed to the equivalent
+ * Sequelize validator. For more detail on the arguments that can be provided,
+ * check the Sequelize validation definition docs.
+ *
+ * @see http://docs.sequelizejs.com/en/v3/docs/models-definition/#validations
+ * @param validation
+ * @param options Any extra Sequelize attribute options required.
+ */
+export function validate(validation: Validation | ValidationFunction, options?: { msg: string, args: any }) {
+  return (target: Object, key: string | symbol) => {
+    let validations: {} = Reflect.getMetadata(ATTR_VALIDATIONS_META_KEY, target, key) || {};
+    let keys = Object.keys(validations);
+
+    if (typeof (validation) === 'function') {
+      // Generate a unique-ish key for the custom validation.
+      // We make our own function here that checks the provided
+      // function and throws with a specific error message if it fails.
+      validations['custom' + keys.length] = (value: any) => {
+        if (!validation(value)) {
+          throw new Error((options ? options.msg : null) || 'Custom validation failed');
+        }
+      };
+    } else {
+      let key;
+
+      switch (validation) {
+        case IS: key = 'is'; break;
+        case NOT: key = 'not'; break;
+        case IS_EMAIL: key = 'isEmail'; break;
+        case IS_URL: key = 'isUrl'; break;
+        case IS_IP: key = 'isIP'; break;
+        case IS_IPV4: key = 'isIPv4'; break;
+        case IS_IPV6: key ='isIPv6'; break;
+        case IS_ALPHA: key ='isAlpha'; break;
+        case IS_ALPHANUMERIC: key = 'isAlphanumeric'; break;
+        case IS_NUMERIC: key = 'isNumeric'; break;
+        case IS_INT: key = 'isInt'; break;
+        case IS_FLOAT: key = 'isFloat'; break;
+        case IS_DECIMAL: key = 'isDecimal'; break;
+        case IS_LOWERCASE: key = 'isLowercase'; break;
+        case IS_UPPERCASE: key = 'isUppercase'; break;
+        case NOT_EMPTY: key = 'notEmpty'; break;
+        case EQUALS: key = 'equals'; break;
+        case CONTAINS: key = 'contains'; break;
+        case NOT_IN: key = 'notIn'; break;
+        case IS_IN: key = 'isIn'; break;
+        case NOT_CONTAINS: key = 'notContains'; break;
+        case LEN: key = 'len'; break;
+        case IS_UUID: key = 'isUUID'; break;
+        case IS_DATE: key = 'isDate'; break;
+        case IS_AFTER: key = 'isAfter'; break;
+        case IS_BEFORE: key = 'isBefore'; break;
+        case MAX: key = 'max'; break;
+        case MIN: key = 'min'; break;
+        case IS_ARRAY: key = 'isArray'; break;
+        case IS_CREDIT_CARD: key = 'isCreditCard'; break;
+      }
+
+      if (!key) {
+        return;
+      }
+
+      validations[key] = options || true;
+    }
+
+    // Redefine the validations with the new one added.
+    Reflect.defineMetadata(ATTR_VALIDATIONS_META_KEY, validations, target, key);
+  };
+}
+
+/**
  * A decorator for model attributes to signify a association to another model.
  * This must be used on any model association that should be synchronised to the database.
  * These associations can then be used in type-safe Squell queries as if they were a regular attribute.
@@ -217,7 +372,7 @@ export function attr(type: DataType, options?: Partial<DefineAttributeColumnOpti
  * @param type    The Sequelize data type for the attribute.
  * @param options Any extra Sequelize attribute options required.
  */
-export function assoc(type: Associations, model: typeof Model,
+export function assoc(type: Association, model: typeof Model,
                       options?: Partial<AssociationOptionsHasOne    |
                                         AssociationOptionsBelongsTo |
                                         AssociationOptionsHasMany   |

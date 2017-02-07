@@ -11,7 +11,7 @@ import { FindOptions, WhereOptions, FindOptionsAttributesArray,
 import { Attribute, PlainAttribute, AssocAttribute } from './attribute';
 import { MODEL_ATTR_KEYS_META_KEY, MODEL_ASSOC_KEYS_META_KEY,
          ASSOC_OPTIONS_META_KEY, Model, ModelAttributes, ModelConstructor,
-         Associations, ValidationError } from './model';
+         Association, ValidationError } from './model';
 import { Where } from './where';
 import { Database } from './database';
 
@@ -337,11 +337,19 @@ export class Query<T extends Model> {
    *          a bool that is true when an instance was created.
    */
   public findOrCreate(options?: FindOrInitializeOptions<T>): Promise<[T, boolean]> {
-    return Promise.resolve(this.internalModel.findOrCreate({
-      ... options,
+    let self = this;
 
-      where: this.compileWheres(),
-    }));
+    return Promise.resolve(
+      this.internalModel
+        .findOrCreate({
+            ... options,
+
+          where: this.compileWheres(),
+        })
+        .catch(SequelizeValidationError, (err: SequelizeValidationError) => {
+          return Promise.reject(ValidationError.coerce(self.model, err));
+        })
+    );
   }
 
   /**
@@ -412,7 +420,7 @@ export class Query<T extends Model> {
       this.internalModel
         .create(this.stripAssociations(model) as T, options)
         .catch(SequelizeValidationError, (err: SequelizeValidationError) => {
-          return ValidationError.coerce(self.model, err);
+          return Promise.reject(ValidationError.coerce(self.model, err));
         })
     );
 
@@ -443,7 +451,7 @@ export class Query<T extends Model> {
       this.internalModel
         .bulkCreate(_.map(models, m => self.stripAssociations(m)), options)
         .catch(SequelizeValidationError, (err: SequelizeValidationError) => {
-          return ValidationError.coerce(self.model, err);
+          return Promise.reject(ValidationError.coerce(self.model, err));
         })
     );
   }
@@ -468,8 +476,7 @@ export class Query<T extends Model> {
     let self = this;
     let data = _.clone(model);
     let includes = this.options.includes || [];
-
-    let [num, instances] = await Promise.resolve(
+    let promise = Promise.resolve(
       this.internalModel
         .update(this.stripAssociations(model as T), {
           ... options,
@@ -478,9 +485,11 @@ export class Query<T extends Model> {
           limit: this.options.taken > 0 ? this.options.taken : undefined,
         })
         .catch(SequelizeValidationError, (err: SequelizeValidationError) => {
-          return ValidationError.coerce(self.model, err);
+          return Promise.reject(ValidationError.coerce(self.model, err));
         })
     );
+
+    let [num, instances] = await promise;
 
     // FIXME: The instance return value is only supported in Postgres,
     // so we findAll here to emulate this on other databases.
@@ -512,11 +521,19 @@ export class Query<T extends Model> {
    * @returns A promise that will upsert and contain true if an instance was inserted.
    */
   public upsert(model: Partial<T>, options?: UpsertOptions): Promise<boolean> {
-    return Promise.resolve(this.internalModel.upsert(model as T, {
-      ... options,
+    let self = this;
 
-      includes: this.compileIncludes()
-    }));
+    return Promise.resolve(
+      this.internalModel
+        .upsert(model as T, {
+          ... options,
+
+          includes: this.compileIncludes()
+        })
+        .catch(SequelizeValidationError, (err: SequelizeValidationError) => {
+          return Promise.reject(ValidationError.coerce(self.model, err));
+        })
+    );
   }
 
   /**

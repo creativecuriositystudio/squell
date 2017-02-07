@@ -10,7 +10,7 @@ import * as Sequelize from 'sequelize';
 
 import { Attribute, PlainAttribute } from './attribute';
 import { ATTR_OPTIONS_META_KEY, Model, ModelConstructor, MODEL_ATTR_KEYS_META_KEY, MODEL_OPTIONS_META_KEY,
-         ASSOC_OPTIONS_META_KEY, MODEL_ASSOC_KEYS_META_KEY, Associations } from './model';
+         ASSOC_OPTIONS_META_KEY, MODEL_ASSOC_KEYS_META_KEY, ATTR_VALIDATIONS_META_KEY, Association } from './model';
 import { Query } from './query';
 
 /** The definition of a specific model attribute. */
@@ -20,7 +20,7 @@ export type ModelAttrDefinition = Partial<DefineAttributeColumnOptions>;
 export type ModelAssocDefinition<T extends Model> = {
   model: ModelConstructor<T>,
   options: any,
-  type: Associations
+  type: Association
 };
 
 /** The model attribute definitions. */
@@ -137,10 +137,10 @@ export class Database {
         let target = this.getModel(assoc.model);
 
         switch (assoc.type) {
-          case Associations.HAS_ONE: model.internalModel.hasOne(target, assoc.options); break;
-          case Associations.HAS_MANY: model.internalModel.hasMany(target, assoc.options); break;
-          case Associations.BELONGS_TO: model.internalModel.belongsTo(target, assoc.options); break;
-          case Associations.BELONGS_TO_MANY: model.internalModel.belongsToMany(target, assoc.options); break;
+          case Association.HAS_ONE: model.internalModel.hasOne(target, assoc.options); break;
+          case Association.HAS_MANY: model.internalModel.hasMany(target, assoc.options); break;
+          case Association.BELONGS_TO: model.internalModel.belongsTo(target, assoc.options); break;
+          case Association.BELONGS_TO_MANY: model.internalModel.belongsToMany(target, assoc.options); break;
         }
 
       });
@@ -286,7 +286,15 @@ export class Database {
     }
 
     return _.chain(keys)
-      .map((x) => [x, Reflect.getMetadata(ATTR_OPTIONS_META_KEY, model.prototype, x)])
+      .map((x) => {
+        let options = {
+          ... Reflect.getMetadata(ATTR_OPTIONS_META_KEY, model.prototype, x),
+
+          validate: Reflect.getMetadata(ATTR_VALIDATIONS_META_KEY, model.prototype, x)
+        };
+
+        return [x, options]
+      })
       .fromPairs()
       .value();
   }

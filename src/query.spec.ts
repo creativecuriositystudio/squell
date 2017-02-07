@@ -3,7 +3,7 @@ import * as sequelize from 'sequelize';
 import 'should';
 
 import { Database } from './database';
-import { model, attr, assoc } from './model';
+import { model, attr, assoc, validate } from './model';
 import * as squell from './index';
 
 @model('actor')
@@ -11,9 +11,11 @@ class Actor extends squell.Model {
   @attr(squell.INTEGER, { primaryKey: true, autoIncrement: true })
   public id: number;
 
+  @validate(squell.NOT_EMPTY)
   @attr(squell.STRING)
   public name: string;
 
+  @validate(v => v != 69)
   @attr(squell.INTEGER)
   public age: number;
 
@@ -22,8 +24,6 @@ class Actor extends squell.Model {
 
   @assoc(squell.HAS_ONE, Actor)
   public mentee: Actor;
-
-  public mentorId: number;
 }
 
 let db = new Database('sqlite://root:root@localhost/squell_test', {
@@ -227,6 +227,26 @@ describe('Query', () => {
         .then(created => {
           created.name.should.equal('Gary Oldman');
         });
+    });
+
+    it('should trigger validation errors', () => {
+      let actor = new Actor();
+
+      // Trigger a not empty validation error.
+      actor.name = '';
+
+      // Trigger non-69 custom validation error.
+      actor.age = 69;
+
+      return db.query(Actor)
+        .create(actor)
+        .then(actor => {
+          return Promise.reject(new Error('Should never resolve'));
+        })
+        .catch((err: squell.ValidationError<Actor>) => {
+          err.errors.name.should.not.be.empty();
+          err.errors.age.should.not.be.empty();
+        });
      });
   });
 
@@ -241,6 +261,27 @@ describe('Query', () => {
         .update(actor)
         .then((result) => {
           result[0].should.equal(1);
+        });
+    });
+
+    it('should trigger validation errors', () => {
+      let actor = new Actor();
+
+      // Trigger a not empty validation error.
+      actor.name = '';
+
+      // Trigger a non-69 custom validation error.
+      actor.age = 69;
+
+      return db.query(Actor)
+        .where(m => m.name.eq('Bruce Willis'))
+        .update(actor)
+        .then(actor => {
+          return Promise.reject('Should never resolve');
+        })
+        .catch((err: squell.ValidationError<Actor>) => {
+          err.errors.name.should.not.be.empty();
+          err.errors.age.should.not.be.empty();
         });
      });
   });
