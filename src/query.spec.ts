@@ -1,3 +1,4 @@
+/* tslint:disable:no-magic-numbers */
 import 'should';
 import * as sequelize from 'sequelize';
 import * as modelsafe from 'modelsafe';
@@ -6,6 +7,7 @@ import { Database } from './database';
 import { attr } from './metadata';
 import { ASC, DESC } from './query';
 
+/* tslint:disable:completed-docs */
 @modelsafe.model()
 class Actor extends modelsafe.Model {
   @attr({ autoIncrement: true })
@@ -24,6 +26,7 @@ class Actor extends modelsafe.Model {
   @modelsafe.assoc(modelsafe.HAS_ONE, Actor)
   public mentee: Actor;
 }
+/* tslint:enable-completed-docs */
 
 let db = new Database('sqlite://root:root@localhost/squell_test', {
   storage: 'test.db',
@@ -33,7 +36,7 @@ let db = new Database('sqlite://root:root@localhost/squell_test', {
 db.define(Actor);
 
 describe('Query', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     return db.sync({ force: true })
       .then(async () => {
         let bruce = new Actor();
@@ -86,7 +89,7 @@ describe('Query', () => {
   });
 
   describe('#findOne', () => {
-    it('should find by name', () => {
+    it('should find by name', async () => {
       return db.query(Actor)
         .where(m => m.name.eq('Bruce Willis'))
         .findOne()
@@ -97,7 +100,7 @@ describe('Query', () => {
   });
 
   describe('#find', () => {
-    it('should find less than 50 yos', () => {
+    it('should find less than 50 yos', async () => {
       return db.query(Actor)
         .where(m => m.age.lt(50))
         .find()
@@ -106,7 +109,7 @@ describe('Query', () => {
         });
     });
 
-    it('should find one 50 yo when dropped', () => {
+    it('should find one 50 yo when dropped', async () => {
       return db.query(Actor)
         .where(m => m.age.lt(50))
         .take(1)
@@ -116,7 +119,7 @@ describe('Query', () => {
         });
     });
 
-    it('should find ordered correctly', () => {
+    it('should find ordered correctly', async () => {
       return db.query(Actor)
         .order(m => [[m.age, ASC]])
         .find()
@@ -128,7 +131,7 @@ describe('Query', () => {
   });
 
   describe('#count', () => {
-    it('should count all actors', () => {
+    it('should count all actors', async () => {
       return db.query(Actor)
         .count()
         .then((num) => {
@@ -136,86 +139,86 @@ describe('Query', () => {
         });
     });
 
-    it('should count two actors under 50 yo', () => {
+    it('should count two actors under 50 yo', async () => {
       return db.query(Actor)
         .where(m => m.age.lt(50))
         .count()
         .then((num) => {
           num.should.equal(2);
         });
-     });
+    });
   });
 
   describe('#aggregate', () => {
-    it('should average ages correctly', () => {
+    it('should average ages correctly', async () => {
       return db.query(Actor)
         .aggregate('AVG', m => m.age)
         .then((num) => {
           Math.ceil(num).should.equal(48);
         });
-     });
+    });
   });
 
   describe('#min', () => {
-    it('should find the minimum age', () => {
+    it('should find the minimum age', async () => {
       return db.query(Actor)
         .min(m => m.age)
         .then((num) => {
           num.should.equal(40);
         });
-     });
+    });
   });
 
   describe('#max', () => {
-    it('should find the maximum age', () => {
+    it('should find the maximum age', async () => {
       return db.query(Actor)
         .max(m => m.age)
         .then((num) => {
           num.should.equal(61);
         });
-     });
+    });
   });
 
   describe('#sum', () => {
-    it('should find the total age', () => {
+    it('should find the total age', async () => {
       return db.query(Actor)
         .sum(m => m.age)
         .then((num) => {
           num.should.equal(146);
         });
-     });
+    });
   });
 
   describe('#truncate', () => {
-    it('should clear the database table', () => {
+    it('should clear the database table', async () => {
       return db.query(Actor)
         .truncate()
-        .then(() => {
+        .then(async () => {
           return db.query(Actor)
             .count()
             .then((num) => {
               num.should.equal(0);
             });
         });
-     });
+    });
   });
 
   describe('#destroy', () => {
-    it('should clear the database table', () => {
+    it('should clear the database table', async () => {
       return db.query(Actor)
         .destroy()
-        .then(() => {
+        .then(async () => {
           return db.query(Actor)
             .count()
             .then((num) => {
               num.should.equal(0);
             });
         });
-     });
+    });
   });
 
   describe('#create', () => {
-    it('should create instances correctly', () => {
+    it('should create instances correctly', async () => {
       let actor = new Actor();
 
       actor.name = 'Gary Oldman';
@@ -230,7 +233,7 @@ describe('Query', () => {
   });
 
   describe('#update', () => {
-    it('should update instances correctly', () => {
+    it('should update instances correctly', async () => {
       let actor = new Actor();
 
       actor.age = 62;
@@ -245,7 +248,7 @@ describe('Query', () => {
   });
 
   describe('#findOrCreate', () => {
-    it('should find existing records', () => {
+    it('should find existing records', async () => {
       return db.query(Actor)
         .where(m => m.name.eq('Bruce Willis').and(m.age.eq(61)))
         .findOrCreate()
@@ -255,7 +258,7 @@ describe('Query', () => {
         });
     });
 
-    it('should create non-existing records', () => {
+    it('should create non-existing records', async () => {
       return db.query(Actor)
         .where(m => m.name.eq('Gary Oldman').and(m.age.eq(58)))
         .findOrCreate()
@@ -263,11 +266,11 @@ describe('Query', () => {
           result[0].age.should.equal(58);
           result[1].should.equal(true);
         });
-     });
+    });
   });
 
   describe('#include', () => {
-    it('should include associated models', () => {
+    it('should include associated models', async () => {
       return db.query(Actor)
         .where(m => m.name.eq('Bruce Willis'))
         .include(Actor, m => m.mentor)

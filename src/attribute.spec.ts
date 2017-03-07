@@ -1,3 +1,4 @@
+/* tslint:disable:no-magic-numbers */
 import sequelize from 'sequelize';
 import 'should';
 
