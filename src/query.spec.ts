@@ -1,28 +1,27 @@
-import * as Bluebird from 'bluebird';
-import * as sequelize from 'sequelize';
 import 'should';
+import * as sequelize from 'sequelize';
+import * as modelsafe from 'modelsafe';
 
 import { Database } from './database';
-import { model, attr, assoc, validate } from './model';
-import * as squell from './index';
+import { attr } from './metadata';
+import { ASC, DESC } from './query';
 
-@model('actor')
-class Actor extends squell.Model {
-  @attr(squell.INTEGER, { primaryKey: true, autoIncrement: true })
-  public id: number;
+@modelsafe.model()
+class Actor extends modelsafe.Model {
+  @attr({ autoIncrement: true })
+  @modelsafe.attr(modelsafe.INTEGER, { primary: true })
+  id: number;
 
-  @validate(squell.NOT_EMPTY)
-  @attr(squell.STRING)
+  @modelsafe.attr(modelsafe.STRING)
   public name: string;
 
-  @validate(v => v !== 69)
-  @attr(squell.INTEGER)
+  @modelsafe.attr(modelsafe.INTEGER)
   public age: number;
 
-  @assoc(squell.BELONGS_TO, Actor)
+  @modelsafe.assoc(modelsafe.BELONGS_TO, Actor)
   public mentor: Actor;
 
-  @assoc(squell.HAS_ONE, Actor)
+  @modelsafe.assoc(modelsafe.HAS_ONE, Actor)
   public mentee: Actor;
 }
 
@@ -71,7 +70,7 @@ describe('Query', () => {
       let options = db.query(Actor)
         .where(m => m.name.eq('Bruce Willis'))
         .attributes(m => [m.name])
-        .order(m => [[m.name, squell.DESC]])
+        .order(m => [[m.name, DESC]])
         .take(5)
         .drop(5)
         .compileFindOptions();
@@ -119,7 +118,7 @@ describe('Query', () => {
 
     it('should find ordered correctly', () => {
       return db.query(Actor)
-        .order(m => [[m.age, squell.ASC]])
+        .order(m => [[m.age, ASC]])
         .find()
         .then((actors) => {
           actors[0].age.should.equal(40);
@@ -228,26 +227,6 @@ describe('Query', () => {
           created.name.should.equal('Gary Oldman');
         });
     });
-
-    it('should trigger validation errors', () => {
-      let actor = new Actor();
-
-      // Trigger a not empty validation error.
-      actor.name = '';
-
-      // Trigger non-69 custom validation error.
-      actor.age = 69;
-
-      return db.query(Actor)
-        .create(actor)
-        .then(result => {
-          return Promise.reject(new Error('Should never resolve'));
-        })
-        .catch((err: squell.ValidationError<Actor>) => {
-          err.errors.name.should.not.be.empty();
-          err.errors.age.should.not.be.empty();
-        });
-     });
   });
 
   describe('#update', () => {
@@ -263,27 +242,6 @@ describe('Query', () => {
           result[0].should.equal(1);
         });
     });
-
-    it('should trigger validation errors', () => {
-      let actor = new Actor();
-
-      // Trigger a not empty validation error.
-      actor.name = '';
-
-      // Trigger a non-69 custom validation error.
-      actor.age = 69;
-
-      return db.query(Actor)
-        .where(m => m.name.eq('Bruce Willis'))
-        .update(actor)
-        .then(result => {
-          return Promise.reject('Should never resolve');
-        })
-        .catch((err: squell.ValidationError<Actor>) => {
-          err.errors.name.should.not.be.empty();
-          err.errors.age.should.not.be.empty();
-        });
-     });
   });
 
   describe('#findOrCreate', () => {

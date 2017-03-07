@@ -1,5 +1,5 @@
 export * from './attribute';
 export * from './database';
-export * from './model';
+export * from './metadata';
 export * from './query';
 export * from './where';

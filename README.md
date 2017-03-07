@@ -4,10 +4,11 @@
 
 Squell is a type-safe wrapper for the Sequelize library, usable in TypeScript 2.1+ projects.
 Squell takes the Sequelize type definitions a step further by allowing models to be designed
-using decorators. Each model is defined as a class with all of its properties being decorated
-with the relevant Sequelize data types.
+using [ModelSafe](https://github.com/creativecuriositystudio/modelsafe).
+Each model is defined as a class with all of its properties being decorated
+with the relevant ModelSafe data types, which will be in turned mapped to Sequelize types.
 
-Additionally to simplifying the process of defining models, Squell provides what is
+Additionally to serializing ModelSafe models to SQL databases, Squell provides what is
 essentially a type-safe query language that compiles down to Sequelize queries.
 This means that any queries on the database are partially checked at compile time,
 which obviously can't capture all errors, but stops small issues like type inconsistencies
@@ -21,27 +22,27 @@ npm install --save squell
 
 ## Usage
 
-A model definition for a web application's user might look something like this:
+Model definitions (including associations/relationships) are written using the ModelSafe library.
+[See the ModelSafe documentation](https://github.com/creativecuriositystudio/modelsafe)
+for more information on how to define models.
+
+An example model definition for a basic user in our application might look like:
 
 ```typescript
-@model('user')
-class User extends Model {
-  @attr(squell.INTEGER, { primaryKey: true, autoIncrement: true })
-  public id: number;
-  
-  @attr(squell.STRING)
+@modelsafe.model('user')
+class User extends modelsafe.Model {
+  @modelsafe.attr(modelsafe.STRING)
   public username: string;
-  
-  @attr(squell.DATE)
-  public createdAt: Date;
-  
-  @attr(squell.DATE)
-  public updatedAt: Date;
-  
-  @attr(squell.STRING)
+
+  @modelsafe.attr(modelsafe.STRING)
   public email: string;
 }
 ```
+
+Squell also provides its own `@model`, `@attr` and `@assoc` decorators that
+are companion pieces to the ModelSafe decorators. These can be used to provide
+specific Sequelize options, such as attribute options like `autoIncrement`
+which is not captured in ModelSafe. Take a look at the documentation for more information.
 
 To query that model, you might do something like this:
 
@@ -65,7 +66,7 @@ as the Sequelize operators.
 ## Documentatation
 
 The API documentation generated using [TypeDoc](https://github.com/TypeStrong/typedoc)
-is [available online](http://creativecuriosity.github.io/squell).
+is [available online](http://creativecuriositystudio.github.io/squell).
 
 To generate API documentation from the code into the `docs` directory, run:
 

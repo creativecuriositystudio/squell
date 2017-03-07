@@ -1,17 +1,18 @@
 /** Contains the type-safe querying interface that wraps Sequelize queries. */
 import * as _ from 'lodash';
-import Sequelize from 'sequelize';
+import * as sequelize from 'sequelize';
+import { Model, ModelConstructor, ModelErrors, ValidationError,
+         getAttributes as getModelAttributes,
+         getAssociations as getModelAssociations } from 'modelsafe';
 import { FindOptions, WhereOptions, FindOptionsAttributesArray,
          DestroyOptions, TruncateOptions, RestoreOptions,
          CountOptions, AggregateOptions, CreateOptions, UpdateOptions,
          BulkCreateOptions, UpsertOptions, FindOrInitializeOptions,
-         IncludeOptions, Utils, ValidationError as SequelizeValidationError
+         IncludeOptions, Utils, ValidationError as SequelizeValidationError,
+         Model as SequelizeModel
        } from 'sequelize';
 
-import { Attribute, PlainAttribute, AssocAttribute } from './attribute';
-import { MODEL_ATTR_KEYS_META_KEY, MODEL_ASSOC_KEYS_META_KEY,
-         ASSOC_OPTIONS_META_KEY, Model, ModelAttributes, ModelConstructor,
-         Association, ValidationError } from './model';
+import { Attribute, PlainAttribute, AssocAttribute, ModelAttributes } from './attribute';
 import { Where } from './where';
 import { Database } from './database';
 
@@ -51,7 +52,59 @@ export interface QueryOptions {
 }
 
 /**
- * A type-safe query on a Squell model.
+ * Coerces a Sequelize validation error into ModelSafe's form.
+ *
+ * @param ctor The model constructor.
+ * @param err The Sequelize validation error.
+ * @returns The coerced error.
+ */
+function coerceValidationError<T extends Model>(
+  ctor: ModelConstructor<T>,
+  err: SequelizeValidationError
+): ValidationError<T> {
+  let errors = {};
+  let attrs = getModelAttributes(ctor);
+  let assocs = getModelAssociations(ctor);
+
+  // Get all the errors for the specific attribute.
+  for (let key of Object.keys(attrs)) {
+    errors[key] = _.map(err.get(key), item => {
+      return item.message;
+    });
+  }
+
+  // Just set empty. We don't validate associations (yet).
+  for (let key of Object.keys(assocs)) {
+    errors[key] = [];
+  }
+
+  return new ValidationError<T>(ctor, err.message, errors as ModelErrors<T>);
+}
+
+/**
+ * Get the attributes of a model as a mapped type.
+ *
+ * @param ctor The model constructor.
+ * @returns The mapped attributes type.hi
+ */
+function getAttributes<T extends Model>(ctor: ModelConstructor<T>): ModelAttributes<T> {
+  let result = {};
+  let attrs = getModelAttributes(ctor);
+  let assocs = getModelAssociations(ctor);
+
+  for (let key of Object.keys(attrs)) {
+    result[key] = new PlainAttribute(key);
+  }
+
+  for (let key of Object.keys(assocs)) {
+    result[key] = new AssocAttribute(key);
+  }
+
+  return result as ModelAttributes<T>;
+}
+
+/**
+ * A type-safe query on a ModelSafe model.
  * This is the main interaction with the library, and every Squell query compiles
  * down to a relevant Sequelize query.
  */
@@ -59,11 +112,11 @@ export class Query<T extends Model> {
   /** The Squell database that generated the query relates to. */
   private db: Database;
 
-  /** The Squell model being queried. */
+  /** The model being queried. */
   private model: ModelConstructor<T>;
 
   /** The internal Sequelize representation of the model. */
-  private internalModel: Sequelize.Model<T, T>;
+  private internalModel: SequelizeModel<T, T>;
 
   /** The options for the query, include wheres, includes, etc. */
   private options: QueryOptions;
@@ -83,11 +136,12 @@ export class Query<T extends Model> {
   constructor(db: Database, model: ModelConstructor<T>, options?: QueryOptions) {
     this.db = db;
     this.model = model;
-    this.internalModel = db.getModel<T>(model);
+    this.internalModel = db.getInternalModel<T>(model);
     this.options = {
       wheres: [],
       dropped: 0,
       taken: 0,
+
       ... options
     };
   }
@@ -100,7 +154,7 @@ export class Query<T extends Model> {
    * @returns   The filtered query.
    */
   public where(map: (attrs: ModelAttributes<T>) => Where): Query<T> {
-    let options = { ... this.options, wheres: this.options.wheres.concat(map(this.getModelAttrs())) };
+    let options = { ... this.options, wheres: this.options.wheres.concat(map(getAttributes(this.model))) };
 
     return new Query<T>(this.db, this.model, options);
   }
@@ -114,7 +168,7 @@ export class Query<T extends Model> {
    */
   public attributes(map: (attrs: ModelAttributes<T>) => Attribute<any>[]): Query<T> {
     let attrs = this.options.attrs || [];
-    let options = { ... this.options, attrs: attrs.concat(map(this.getModelAttrs())) };
+    let options = { ... this.options, attrs: attrs.concat(map(getAttributes(this.model))) };
 
     return new Query<T>(this.db, this.model, options);
   }
@@ -131,19 +185,20 @@ export class Query<T extends Model> {
    *              to the association query.
    * @returns The eagerly-loaded query.
    */
-  public include<U extends Model>(model: ModelConstructor<U>, attr: (attrs: ModelAttributes<T>) => Attribute<any>,
+  public include<U extends Model>(model: ModelConstructor<U>,
+                                  attr: (attrs: ModelAttributes<T>) => Attribute<any>,
                                   query?: (query: Query<U>) => Query<U>): Query<T> {
     let includes = this.options.includes || [];
-    let assocKey = attr(this.getModelAttrs()).compileLeft();
+    let assocKey = attr(getAttributes(this.model)).compileLeft();
     let includeOptions = {
-      model: this.db.getModel(model),
+      model: this.db.getInternalModel(model),
       as: assocKey,
     };
 
     if (query) {
       includeOptions = {
-          ... query(new Query<U>(this.db, model)).compileFindOptions(),
-          ... includeOptions
+        ... query(new Query<U>(this.db, model)).compileFindOptions(),
+        ... includeOptions
       };
     }
 
@@ -161,7 +216,7 @@ export class Query<T extends Model> {
    */
   public order(map: (attrs: ModelAttributes<T>) => AttributeOrder<any>[]): Query<T> {
     let orderings = this.options.orderings || [];
-    let options = { ... this.options, orderings: orderings.concat(map(this.getModelAttrs())) };
+    let options = { ... this.options, orderings: orderings.concat(map(getAttributes(this.model))) };
 
     return new Query<T>(this.db, this.model, options);
   }
@@ -194,7 +249,7 @@ export class Query<T extends Model> {
    * @param options Any extra Sequelize find options required.
    * @returns A promise that resolves to a list of found instances if successful.
    */
-  public find(options?: FindOptions): Promise<T[]> {
+  public async find(options?: FindOptions): Promise<T[]> {
     return Promise.resolve(this.internalModel.findAll({ ... options, ... this.compileFindOptions() }));
   }
 
@@ -204,7 +259,7 @@ export class Query<T extends Model> {
    * @param options Any extra Sequelize find options required.
    * @returns A promise that resolves to the found instance if successful.
    */
-  public findOne(options?: FindOptions): Promise<T> {
+  public async findOne(options?: FindOptions): Promise<T> {
     return Promise.resolve(this.internalModel.findOne({ ... options, ... this.compileFindOptions() }));
   }
 
@@ -213,7 +268,7 @@ export class Query<T extends Model> {
    *
    * @returns A promise that resolves when the model table has been truncated.
    */
-  public truncate(): Promise<void> {
+  public async truncate(): Promise<void> {
     return Promise.resolve(this.internalModel.truncate());
   }
 
@@ -225,7 +280,7 @@ export class Query<T extends Model> {
    * @param options Any extra Sequelize restore options required.
    * @returns A promise that resolves when the instances have been restored successfully.
    */
-  public restore(options?: RestoreOptions): Promise<void> {
+  public async restore(options?: RestoreOptions): Promise<void> {
     return Promise.resolve(this.internalModel.restore({
       ... options,
 
@@ -242,7 +297,7 @@ export class Query<T extends Model> {
    * @param options Any extra Sequelize destroy options required.
    * @returns A promise that resolves when the instances have been destroyed successfully.
    */
-  public destroy(options?: DestroyOptions): Promise<number> {
+  public async destroy(options?: DestroyOptions): Promise<number> {
     return Promise.resolve(this.internalModel.destroy({
       ... options,
 
@@ -258,7 +313,7 @@ export class Query<T extends Model> {
    * @param options Any extra Sequelize count options required.
    * @returns A promise that resolves with the number of records found if successful.
    */
-  public count(options?: CountOptions): Promise<number> {
+  public async count(options?: CountOptions): Promise<number> {
     return Promise.resolve(this.internalModel.count({
       ... options,
 
@@ -275,9 +330,9 @@ export class Query<T extends Model> {
    *            and produce the attribute to aggregate by.
    * @returns A promise that resolves with the aggregation value if successful.
    */
-  public aggregate(fn: string, map: (attrs: ModelAttributes<T>) => Attribute<any>,
-                   options?: AggregateOptions): Promise<any> {
-    return Promise.resolve(this.internalModel.aggregate(map(this.getModelAttrs()).compileLeft(), fn, {
+  public async aggregate(fn: string, map: (attrs: ModelAttributes<T>) => Attribute<any>,
+                         options?: AggregateOptions): Promise<any> {
+    return Promise.resolve(this.internalModel.aggregate(map(getAttributes(this.model)).compileLeft(), fn, {
       ... options,
 
       where: this.compileWheres(),
@@ -293,9 +348,9 @@ export class Query<T extends Model> {
    *            and produce the attribute to aggregate by.
    * @returns A promise that resolves with the aggregation value if successful.
    */
-  public min(map: (attrs: ModelAttributes<T>) => Attribute<any>,
-             options?: AggregateOptions): Promise<any> {
-               return Promise.resolve(this.aggregate('min', map, options));
+  public async min(map: (attrs: ModelAttributes<T>) => Attribute<any>,
+                   options?: AggregateOptions): Promise<any> {
+    return Promise.resolve(this.aggregate('min', map, options));
   }
 
   /**
@@ -306,8 +361,8 @@ export class Query<T extends Model> {
    *            and produce the attribute to aggregate by.
    * @returns A promise that resolves with the aggregation value if successful.
    */
-  public max(map: (attrs: ModelAttributes<T>) => Attribute<any>,
-             options?: AggregateOptions): Promise<any> {
+  public async max(map: (attrs: ModelAttributes<T>) => Attribute<any>,
+                   options?: AggregateOptions): Promise<any> {
     return Promise.resolve(this.aggregate('max', map, options));
   }
 
@@ -319,8 +374,8 @@ export class Query<T extends Model> {
    *            and produce the attribute to aggregate by.
    * @returns A promise that resolves with the aggregation value if successful.
    */
-  public sum(map: (attrs: ModelAttributes<T>) => Attribute<any>,
-             options?: AggregateOptions): Promise<any> {
+  public async sum(map: (attrs: ModelAttributes<T>) => Attribute<any>,
+                   options?: AggregateOptions): Promise<any> {
     return Promise.resolve(this.aggregate('sum', map, options));
   }
 
@@ -332,22 +387,25 @@ export class Query<T extends Model> {
    *
    * This *will not* update any associations.
    *
+   * @param defaults The default values to be used alongside the search parameters
+   *                 when the instance is being created.
    * @param options Any extra Sequelize find or initialize options required.
    * @returns A promise that resolves with the found/created instance and
    *          a bool that is true when an instance was created.
    */
-  public findOrCreate(options?: FindOrInitializeOptions<T>): Promise<[T, boolean]> {
+  public async findOrCreate(defaults?: Partial<T>, options?: FindOrInitializeOptions<T>): Promise<[T, boolean]> {
     let self = this;
 
     return Promise.resolve(
       this.internalModel
         .findOrCreate({
-            ... options,
+          ... options,
 
+          defaults: defaults as T,
           where: this.compileWheres(),
         })
-        .catch(SequelizeValidationError, (err: SequelizeValidationError) => {
-          return Promise.reject(ValidationError.coerce(self.model, err));
+        .catch(SequelizeValidationError, async (err: SequelizeValidationError) => {
+          return Promise.reject(coerceValidationError(self.model, err));
         })
     );
   }
@@ -360,9 +418,7 @@ export class Query<T extends Model> {
    * @returns The stripped model instance.
    */
   private stripAssociations(model: T): T {
-    let assocKeys: string[] = Reflect.getMetadata(MODEL_ASSOC_KEYS_META_KEY, this.model.prototype);
-
-    return _.omit(model, assocKeys) as T;
+    return _.omit(model, Object.keys(getModelAssociations(this.model))) as T;
   }
 
   /**
@@ -375,18 +431,17 @@ export class Query<T extends Model> {
    */
   private async associate(model: T, data: {}): Promise<void> {
     let modelData = model as {};
-    let assocs = this.db.getModelAssociations(this.model);
+    let assocs = getModelAssociations(this.model);
     let includes = this.options.includes || [];
 
     for (let include of includes) {
       let key = include.as;
-      let assoc = assocs[key];
-      let assocValue = data[key];
+      let value = data[key];
 
       // This is the same across all associations.
       let method = modelData['set' + Utils.uppercaseFirst(key)];
 
-      if (!method) {
+      if (typeof (method) !== 'function') {
         continue;
       }
 
@@ -394,10 +449,10 @@ export class Query<T extends Model> {
 
       // If the value looks empty, deassociate. Otherwise associate.
       // TODO: Only change associations if they've changed.
-      if (!assocValue) {
+      if (!value) {
         await method(undefined);
       } else {
-        await method(assocValue);
+        await method(value);
       }
     }
   }
@@ -419,8 +474,8 @@ export class Query<T extends Model> {
     let instance = await Promise.resolve(
       this.internalModel
         .create(this.stripAssociations(model) as T, options)
-        .catch(SequelizeValidationError, (err: SequelizeValidationError) => {
-          return Promise.reject(ValidationError.coerce(self.model, err));
+        .catch(SequelizeValidationError, async (err: SequelizeValidationError) => {
+          return Promise.reject(coerceValidationError(self.model, err));
         })
     );
 
@@ -444,14 +499,14 @@ export class Query<T extends Model> {
    * @param options Any extra Sequelize bulk create options required.
    * @returns The array of instances created. See above.
    */
-  public bulkCreate(models: T[], options?: BulkCreateOptions): Promise<T[]> {
+  public async bulkCreate(models: T[], options?: BulkCreateOptions): Promise<T[]> {
     let self = this;
 
     return Promise.resolve(
       this.internalModel
         .bulkCreate(_.map(models, m => self.stripAssociations(m)), options)
-        .catch(SequelizeValidationError, (err: SequelizeValidationError) => {
-          return Promise.reject(ValidationError.coerce(self.model, err));
+        .catch(SequelizeValidationError, async (err: SequelizeValidationError) => {
+          return Promise.reject(coerceValidationError(self.model, err));
         })
     );
   }
@@ -484,8 +539,8 @@ export class Query<T extends Model> {
           where: this.compileWheres(),
           limit: this.options.taken > 0 ? this.options.taken : undefined,
         })
-        .catch(SequelizeValidationError, (err: SequelizeValidationError) => {
-          return Promise.reject(ValidationError.coerce(self.model, err));
+        .catch(SequelizeValidationError, async (err: SequelizeValidationError) => {
+          return Promise.reject(coerceValidationError(self.model, err));
         })
     );
 
@@ -520,7 +575,7 @@ export class Query<T extends Model> {
    * @param options Any extra Sequelize upsert options required.
    * @returns A promise that will upsert and contain true if an instance was inserted.
    */
-  public upsert(model: Partial<T>, options?: UpsertOptions): Promise<boolean> {
+  public async upsert(model: Partial<T>, options?: UpsertOptions): Promise<boolean> {
     let self = this;
 
     return Promise.resolve(
@@ -530,31 +585,10 @@ export class Query<T extends Model> {
 
           includes: this.compileIncludes()
         })
-        .catch(SequelizeValidationError, (err: SequelizeValidationError) => {
-          return Promise.reject(ValidationError.coerce(self.model, err));
+        .catch(SequelizeValidationError, async (err: SequelizeValidationError) => {
+          return Promise.reject(coerceValidationError(self.model, err));
         })
     );
-  }
-
-  /**
-   * Gets the model attributes object from the model being queried.
-   *
-   * @returns The model attributes object.
-   */
-  protected getModelAttrs(): ModelAttributes<T> {
-    let attrs = {};
-    let attrKeys: string[] = Reflect.getMetadata(MODEL_ATTR_KEYS_META_KEY, this.model.prototype) || [];
-    let assocKeys: string[] = Reflect.getMetadata(MODEL_ASSOC_KEYS_META_KEY, this.model.prototype) || [];
-
-    for (let key of attrKeys) {
-      attrs[key] = new PlainAttribute(key);
-    }
-
-    for (let key of assocKeys) {
-      attrs[key] = new AssocAttribute(key);
-    }
-
-    return attrs as ModelAttributes<T>;
   }
 
   /**

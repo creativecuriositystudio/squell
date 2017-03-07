@@ -1,11 +1,12 @@
 /** Contains all of the attribute querying types. */
 import * as _ from 'lodash';
+import { Model } from 'modelsafe';
 import { col as sequelizeCol, fn as sequelizeFn } from 'sequelize';
 
 import { Where } from './where';
 
 /**
- * A helper function to construct a column attribute.
+ * Construct a column attribute.
  * This will function the same as the Sequelize function
  * with the same name when used in a query, but will
  * fully support the type-safe capabilities of Squell.
@@ -15,7 +16,7 @@ export function col(name: string): Attribute<any> {
 }
 
 /**
- * A helper function to construct a function attribute.
+ * Construct a function attribute.
  * This will function in a type-safe manner on the Squell end,
  * but compile down to the function of the same name on
  * the Sequelize end.
@@ -367,7 +368,7 @@ export abstract class Attribute<T> {
    * @param other The attribute or constant value.
    * @param operator The Sequelize operator to use in the comparison.
    */
-  protected build(other: any | Attribute<T>, operator = '$eq'): Where {
+  protected build(other: any | Attribute<T>, operator: string = '$eq'): Where {
     let value = other instanceof Attribute
       ? other.compileRight()
       : other;
@@ -403,10 +404,12 @@ export class PlainAttribute<T> extends Attribute<T> {
     this.name = name;
   }
 
+  /** Compiles into the right side format. */
   public compileRight(): any {
     return sequelizeCol(this.name);
   }
 
+  /** Compiles into the left side format. */
   public compileLeft(): any {
     return this.name;
   }
@@ -434,10 +437,12 @@ export class ColumnAttribute<T> extends Attribute<T> {
     this.name = name;
   }
 
+  /** Compiles into the right side format. */
   public compileRight(): any {
     return sequelizeCol(this.name);
   }
 
+  /** Compiles into the left side format. */
   public compileLeft(): never {
     throw new SyntaxError('A column attribute cannot be used as a left operator in a Squell query');
   }
@@ -470,10 +475,12 @@ export class FunctionAttribute<T> extends Attribute<T> {
     this.args = args;
   }
 
+  /** Compiles into the right side format. */
   public compileRight(): any {
     return sequelizeFn.apply(sequelizeFn, [this.name].concat(this.args.map(a => a.compileRight())));
   }
 
+  /** Compiles into the left side format. */
   public compileLeft(): never {
     throw new SyntaxError('A function attribute cannot be used as a left operator in a Squell query');
   }
@@ -499,10 +506,12 @@ export class ConstantAttribute<T> extends Attribute<T> {
     this.value = value;
   }
 
+  /** Compiles into the right side format. */
   public compileRight(): any {
     return this.value;
   }
 
+  /** Compiles into the left side format. */
   public compileLeft(): any {
     return this.value;
   }
@@ -534,10 +543,12 @@ export class AliasAttribute<T> extends Attribute<T> {
     this.aliased = aliased;
   }
 
+  /** Compiles into the right side format. */
   public compileRight(): any {
     return [this.aliased.compileRight(), this.name];
   }
 
+  /** Compiles into the left side format. */
   public compileLeft(): never {
     throw new SyntaxError('An aliased attribute cannot be used as a left operator in a Squell query');
   }
@@ -548,6 +559,13 @@ export class AliasAttribute<T> extends Attribute<T> {
  * This is the same as a plain attribute for now,
  * but may be used for something different in the future.
  */
-export class AssocAttribute<T> extends PlainAttribute<T> {
+export class AssocAttribute<T> extends PlainAttribute<T> {}
 
-}
+/**
+ * A mapped type that maps all of a model type's
+ * attributes to the Squell attribute type
+ * to support type-safe queries.
+ */
+export type ModelAttributes<T extends Model> = {
+  [P in keyof T]: Attribute<T[P]>;
+};

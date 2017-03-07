@@ -1,4 +1,3 @@
-import sequelize from 'sequelize';
 import 'should';
 
 import { PlainAttribute } from './attribute';
