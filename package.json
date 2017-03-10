@@ -1,6 +1,6 @@
 {
   "name": "squell",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "main": "dist/index.js",
   "bugs": "https://github.com/creativecuriositystudio/squell/issues",
   "keywords": [
@@ -18,6 +18,7 @@
     "Zack Corr <zack@z0w0.me> (http://z0w0.me)"
   ],
   "scripts": {
+    "prepush": "npm run lint && npm run test",
     "prepublish": "tsc",
     "build": "tsc",
     "docs": "typedoc --out docs src/index.ts",
@@ -31,15 +32,16 @@
   "devDependencies": {
     "@types/mocha": "^2.2.33",
     "@types/should": "^8.1.30",
+    "husky": "^0.13.2",
     "mocha": "^3.2.0",
+    "modelsafe": "^0.3.0",
+    "sequelize": "^4.0.0-2",
     "should": "^11.1.2",
     "sqlite": "^2.2.4",
     "ts-node": "^1.7.2",
     "tslint": "^4.3.0",
-    "tslint-config-ccs": "^0.3.2",
-    "typedoc": "^0.5.1",
-    "modelsafe": "^0.3.0",
-    "sequelize": "^4.0.0-2"
+    "tslint-config-ccs": "^0.3.3",
+    "typedoc": "^0.5.1"
   },
   "peerDependencies": {
     "modelsafe": "^0.3.0",

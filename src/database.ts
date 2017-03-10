@@ -257,4 +257,19 @@ export class Database extends Safe {
 
     return internalModel;
   }
+
+  /**
+   * Get the internal Sequelize model's primary attribute.
+   * Throws an error if the model has not been decorated correctly using
+   * the ModelSafe decorators.
+   *
+   * @throws Error
+   * @param model The model class to get the primary attribute for.
+   *              The model must be defined on the database before it can be queried.
+   */
+  public getInternalModelPrimary<T, U extends Model>(model: ModelConstructor<U>): Attribute<T> {
+    // FIXME: Wish we didn't have to cast any here, but primaryKeyAttribute isn't exposed
+    // by the Sequelize type definitions.
+    return new PlainAttribute<T>((this.getInternalModel<U>(model) as any).primaryKeyAttribute);
+  }
 }
