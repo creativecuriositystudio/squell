@@ -23,7 +23,7 @@ class Actor extends modelsafe.Model {
   @modelsafe.assoc(modelsafe.BELONGS_TO, Actor)
   public mentor: Actor;
 
-  @modelsafe.assoc(modelsafe.HAS_ONE, Actor)
+  @modelsafe.assoc(modelsafe.HAS_ONE, () => Actor)
   public mentee: Actor;
 }
 /* tslint:enable-completed-docs */
@@ -59,12 +59,25 @@ describe('Query', () => {
         bruce.mentor = milla;
         milla.mentor = chris;
         chris.mentor = bruce;
+        chris.mentee = milla;
 
         await db
           .query(Actor)
-          .where(m => m.id.eq(bruce.id))
           .include(Actor, m => m.mentor)
-          .update(bruce);
+          .include(Actor, m => m.mentee)
+          .save(bruce);
+
+        await db
+          .query(Actor)
+          .include(Actor, m => m.mentor)
+          .include(Actor, m => m.mentee)
+          .save(milla);
+
+        await db
+          .query(Actor)
+          .include(Actor, m => m.mentor)
+          .include(Actor, m => m.mentee)
+          .save(chris);
       });
   });
 
@@ -217,6 +230,38 @@ describe('Query', () => {
     });
   });
 
+  describe('#save', () => {
+    it('should create instances if no primary is set', async () => {
+      let actor = new Actor();
+
+      actor.name = 'Gary Oldman';
+      actor.age = 58;
+
+      return db.query(Actor)
+        .save(actor)
+        .then(created => {
+          created.id.should.equal(4);
+        });
+    });
+
+    it('should update instances if a primary is set', async () => {
+      let actor = new Actor();
+
+      actor.name = 'Gary Oldman';
+      actor.age = 58;
+
+      let created = await db.query(Actor).create(actor);
+
+      created.id.should.equal(4);
+      created.name = 'Barry Boldman';
+
+      let updated = await db.query(Actor).save(created);
+
+      updated.id.should.equal(4);
+      updated.name.should.equal('Barry Boldman');
+    });
+  });
+
   describe('#create', () => {
     it('should create instances correctly', async () => {
       let actor = new Actor();
@@ -278,6 +323,16 @@ describe('Query', () => {
         .then((result) => {
           result.age.should.equal(61);
           result.mentor.name.should.equal('Milla Jojovich');
+        });
+    });
+
+    it('should include lazy-loaded associated models', async () => {
+      return db.query(Actor)
+        .where(m => m.name.eq('Chris Tucker'))
+        .include(Actor, m => m.mentee)
+        .findOne()
+        .then((result) => {
+          result.mentee.name.should.equal('Milla Jojovich');
         });
     });
   });

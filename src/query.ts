@@ -13,6 +13,7 @@ import { FindOptions, WhereOptions, FindOptionsAttributesArray,
        } from 'sequelize';
 
 import { Attribute, PlainAttribute, AssocAttribute, ModelAttributes } from './attribute';
+import { getAssociationOptions } from './metadata';
 import { Where } from './where';
 import { Database } from './database';
 
@@ -189,11 +190,17 @@ export class Query<T extends Model> {
                                   attr: (attrs: ModelAttributes<T>) => Attribute<any>,
                                   query?: (query: Query<U>) => Query<U>): Query<T> {
     let includes = this.options.includes || [];
-    let assocKey = attr(getAttributes(this.model)).compileLeft();
+    let key = attr(getAttributes(this.model)).compileLeft();
+    let assocOptions = getAssociationOptions(this.model, key);
     let includeOptions = {
       model: this.db.getInternalModel(model),
-      as: assocKey,
+      as: assocOptions && assocOptions.as ? assocOptions.as : key
     };
+
+    // If the association has been defined,
+    // use the as option from there. This allows
+    // users of the library to provide custom `as` options
+    // and we can still query them correctly.
 
     if (query) {
       includeOptions = {
@@ -412,13 +419,14 @@ export class Query<T extends Model> {
 
   /**
    * A helper function that removes any association
-   * values from a model instance.
+   * values and returns the model as a plain object
+   * instead of a class instance.
    *
    * @param model The model instance to strip.
    * @returns The stripped model instance.
    */
-  private stripAssociations(model: T): T {
-    return _.omit(model, Object.keys(getModelAssociations(this.model))) as T;
+  private prepare(model: T): T {
+    return _.pick(model, Object.keys(getModelAttributes(this.model))) as T;
   }
 
   /**
@@ -458,6 +466,43 @@ export class Query<T extends Model> {
   }
 
   /**
+   * Automatically update or create a model instance
+   * depending on whether it has already been created.
+   *
+   * This is done by inspecting the primary key and seeing
+   * if it's set. If it's set, a where query with
+   * that ID is added and then update is called.
+   * If no primary key was set, the model instance is created then returned.
+   *
+   * @param model The model instance.
+   * @param options The create or update options. The relevant will be used depending
+   *                on the value of the primary key.
+   * @returns A promise that resolves with the saved instance if successful.
+   */
+  public async save(model: T, options?: CreateOptions | UpdateOptions): Promise<T> {
+    let primary = this.db.getInternalModelPrimary(this.model);
+    let primaryValue = model[primary.compileLeft()];
+
+    // If the primary key is set, update.
+    // Otherwise create.
+    if (primaryValue) {
+      let [num, instances] = await this
+        .where(m => primary.eq(primaryValue))
+        .update(model, <UpdateOptions> options);
+
+      // Handle this just in case.
+      // Kind of unexpected behaviour, so we just return null.
+      if (num < 1 || instances.length < 1) {
+        return null;
+      }
+
+      return instances[0];
+    } else {
+      return this.create(model, <CreateOptions> options);
+    }
+  }
+
+  /**
    * Creates a model instance in the database.
    *
    * By default validations will be run.
@@ -473,7 +518,7 @@ export class Query<T extends Model> {
     let data = _.clone(model);
     let instance = await Promise.resolve(
       this.internalModel
-        .create(this.stripAssociations(model) as T, options)
+        .create(this.prepare(model), options)
         .catch(SequelizeValidationError, async (err: SequelizeValidationError) => {
           return Promise.reject(coerceValidationError(self.model, err));
         })
@@ -504,7 +549,7 @@ export class Query<T extends Model> {
 
     return Promise.resolve(
       this.internalModel
-        .bulkCreate(_.map(models, m => self.stripAssociations(m)), options)
+        .bulkCreate(_.map(models, m => self.prepare(m)), options)
         .catch(SequelizeValidationError, async (err: SequelizeValidationError) => {
           return Promise.reject(coerceValidationError(self.model, err));
         })
@@ -533,7 +578,7 @@ export class Query<T extends Model> {
     let includes = this.options.includes || [];
     let promise = Promise.resolve(
       this.internalModel
-        .update(this.stripAssociations(model as T), {
+        .update(this.prepare(model as T), {
           ... options,
 
           where: this.compileWheres(),

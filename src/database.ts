@@ -3,8 +3,8 @@ import 'reflect-metadata';
 import * as _ from 'lodash';
 import * as Sequelize from 'sequelize';
 import { Model, ModelConstructor, Safe, AssociationType, AttributeType, InternalAttributeType,
-         ArrayAttributeTypeOptions, EnumAttributeTypeOptions,
-         getModelOptions, getAttributes, getAssociations,
+         ArrayAttributeTypeOptions, EnumAttributeTypeOptions, isLazyLoad,
+         getModelOptions, getAttributes, getAssociations, AssociationTarget,
          HAS_ONE, HAS_MANY, BELONGS_TO, BELONGS_TO_MANY } from 'modelsafe';
 import { DestroyOptions, DropOptions, Options as SequelizeOptions,
          Sequelize as Connection, SyncOptions, Transaction, Model as SequelizeModel,
@@ -113,7 +113,7 @@ export class Database extends Safe {
         let mappedType = mapType(attrOptions.type);
 
         if (typeof (mappedType) === 'undefined') {
-          return Promise.reject(new Error(`Cannot define the ${name} model without a type on the ${key} attribute`));
+          throw new Error(`Cannot define the ${name} model without a type on the ${key} attribute`);
         }
 
         let mappedAttr: DefineAttributeColumnOptions = {
@@ -154,17 +154,26 @@ export class Database extends Safe {
       for (let key of Object.keys(assocs)) {
         let assocOptions = assocs[key];
         let type = assocOptions.type;
-        let target = assocOptions.target;
+        let target = assocOptions.target; 
+
+        if (isLazyLoad(target)) {
+            target = (<() => ModelConstructor<any>> target)();
+        }
 
         if (typeof (type) === 'undefined') {
-          return Promise.reject(new Error(`Cannot associate the ${name} model without a type for association ${key}`));
+          throw new Error(`Cannot associate the ${name} model without a type for association ${key}`);
         }
 
         if (!target) {
-          return Promise.reject(new Error(`Cannot associate the ${name} model without a target for association ${key}`));
+          throw new Error(`Cannot associate the ${name} model without a target for association ${key}`);
         }
 
         let targetOptions = getModelOptions(target);
+
+        if (!targetOptions.name) {
+          throw new Error(`Cannot associate the ${name} model without a correctly decorated target for association ${key}`);
+        }
+
         let targetModel = this.internalModels[targetOptions.name];
         let mappedAssoc = {
           as: key,
@@ -172,6 +181,13 @@ export class Database extends Safe {
 
           ... getAssociationOptions(model, key)
         };
+
+        // If this isn't a belongsToMany, delete the through option.
+        // Otherwise Sequelize will think we're trying to do a belongs
+        // to many.
+        if (type !== BELONGS_TO_MANY) {
+          delete mappedAssoc.through;
+        }
 
         switch (type) {
         case HAS_ONE: internalModel.hasOne(targetModel, mappedAssoc); break;

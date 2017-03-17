@@ -20,11 +20,11 @@
   version "9.1.8"
   resolved "https://registry.yarnpkg.com/@types/highlight.js/-/highlight.js-9.1.8.tgz#d227f18bcb8f3f187e16965f2444859a04689758"
 
-"@types/lodash@*", "@types/lodash@^4.14.41":
+"@types/lodash@*", "@types/lodash@^4.14.37", "@types/lodash@^4.14.41":
   version "4.14.43"
   resolved "https://registry.yarnpkg.com/@types/lodash/-/lodash-4.14.43.tgz#0373de422e70f5bce12c15340103a3c126c81086"
 
-"@types/lodash@^4.14.37", "@types/lodash@^4.14.53":
+"@types/lodash@^4.14.53":
   version "4.14.54"
   resolved "https://registry.yarnpkg.com/@types/lodash/-/lodash-4.14.54.tgz#287dbbcd97d5da69c25ca99fb5afa81c4839b7fa"
 
@@ -974,9 +974,9 @@ mocha@^3.2.0:
     mkdirp "0.5.1"
     supports-color "3.1.2"
 
-modelsafe@^0.3.0:
-  version "0.3.0"
-  resolved "https://registry.yarnpkg.com/modelsafe/-/modelsafe-0.3.0.tgz#005691baf1d2dfa153b1845c7115ff27677f5e9f"
+"modelsafe@>= 0.5.1":
+  version "0.5.1"
+  resolved "https://registry.yarnpkg.com/modelsafe/-/modelsafe-0.5.1.tgz#4a62ba6c0070e64d7c53314f5e54c50037fab336"
   dependencies:
     "@types/lodash" "^4.14.53"
     "@types/reflect-metadata" "0.0.5"

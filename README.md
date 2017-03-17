@@ -103,8 +103,8 @@ This project is licensed under the MIT license. Please see `LICENSE.md` for more
 
 ## Limitations
 
+* Any static functions or methods on the model classes are not yet transferred over to Sequelize.
+  This means when trying to call them they will be undefined.
 * Calling update will do both an `update` and `findAll` call instead of just the single update call. This is because relationships have to be automatically assigned by Squell, which requires the updated instance model.
 * Associations will always be updated every `create`/`update` call, even if the association hasn't changed. These associations will only be updated if an `include` for that association model has be set, however.
 * `bulkCreate` cannot create objects with relationships.
-* Models must always be direct subclasses of the abstract model class. Unfortunately there does not appear
-  to be a way to inherit attributes decorated in a parent class yet.
