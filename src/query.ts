@@ -271,6 +271,17 @@ export class Query<T extends Model> {
   }
 
   /**
+   * Find a single model instance by a primary key/ID.
+   *
+   * @param id The primary key/ID value.
+   * @param options Any extra Sequelize find options required.
+   * @returns A promise that resolves to the found instance if successful.
+   */
+  public async findById(id: any, options?: FindOptions): Promise<T> {
+    return Promise.resolve(this.internalModel.findById(id, options));
+  }
+
+  /**
    * Truncate the model table in the database.
    *
    * @returns A promise that resolves when the model table has been truncated.

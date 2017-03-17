@@ -1,3 +1,7 @@
+# 0.5.0
+
+* Add `findById` operation
+
 # 0.4.0
 
 * Support ModelSafe's new lazy loading association declaration feature

@@ -314,6 +314,21 @@ describe('Query', () => {
     });
   });
 
+  describe('#findById', () => {
+    it('should find existing records by ID', async () => {
+      let [actor, created] = await db.query(Actor)
+        .where(m => m.name.eq('Gary Oldman').and(m.age.eq(58)))
+        .findOrCreate();
+
+      return db.query(Actor)
+        .findById(actor.id)
+        .then(result => {
+          result.name.should.equal('Gary Oldman');
+          result.age.should.equal(58);
+        });
+    });
+  });
+
   describe('#include', () => {
     it('should include associated models', async () => {
       return db.query(Actor)
