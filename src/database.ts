@@ -154,10 +154,10 @@ export class Database extends Safe {
       for (let key of Object.keys(assocs)) {
         let assocOptions = assocs[key];
         let type = assocOptions.type;
-        let target = assocOptions.target; 
+        let target = assocOptions.target;
 
         if (isLazyLoad(target)) {
-            target = (<() => ModelConstructor<any>> target)();
+          target = (<() => ModelConstructor<any>> target)();
         }
 
         if (typeof (type) === 'undefined') {
