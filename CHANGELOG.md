@@ -1,3 +1,7 @@
+# 0.5.1
+
+* Bump to ModelSafe 0.5.2 for `ValidationError` fixes
+
 # 0.5.0
 
 * Add `findById` operation
