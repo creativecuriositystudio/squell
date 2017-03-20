@@ -1,3 +1,9 @@
+# 0.5.2
+
+* Fix association saving to support setting associations with an include flag
+  even if the association target hasn't come directly from the database (i.e.
+  it's a plain JS object instead of a Sequelize instance)
+
 # 0.5.1
 
 * Bump to ModelSafe 0.5.2 for `ValidationError` fixes

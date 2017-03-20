@@ -105,6 +105,16 @@ function getAttributes<T extends Model>(ctor: ModelConstructor<T>): ModelAttribu
 }
 
 /**
+ * Check if an any value is a Sequelize instance.
+ *
+ * @param value The value to check.
+ * @returns Whether the value is a Sequelize instance.
+ */
+function isSequelizeInstance(value: any): boolean {
+  return typeof (value) === 'object' && value && typeof (value.toJSON) === 'function';
+}
+
+/**
  * A type-safe query on a ModelSafe model.
  * This is the main interaction with the library, and every Squell query compiles
  * down to a relevant Sequelize query.
@@ -429,15 +439,23 @@ export class Query<T extends Model> {
   }
 
   /**
-   * A helper function that removes any association
-   * values and returns the model as a plain object
-   * instead of a class instance.
+   * Returns a plain object version of the instance with attributes only.
    *
-   * @param model The model instance to strip.
+   * @param instance The model instance to strip.
    * @returns The stripped model instance.
    */
-  private prepare(model: T): T {
-    return _.pick(model, Object.keys(getModelAttributes(this.model))) as T;
+  private prepareAttributes(instance: T): T {
+    return _.pick(instance, Object.keys(getModelAttributes(this.model))) as T;
+  }
+
+  /**
+   * Returns a plain object version of the instance with associations only.
+   *
+   * @param instance The model instance to strip.
+   * @returns The stripped model instance.
+   */
+  private prepareAssociations(instance: T): T {
+    return _.pick(instance, Object.keys(getModelAssociations(this.model))) as T;
   }
 
   /**
@@ -446,34 +464,64 @@ export class Query<T extends Model> {
    * required.
    *
    * @param model The model instance to associate.
-   * @returns A promise that associates the instance.
+   * @param assocValues The associations of the instance, as a plain object.
+   * @returns A promise that associates the instance and returns a reloaded instance afterwards.
    */
-  private async associate(model: T, data: {}): Promise<void> {
-    let modelData = model as {};
+  private async associate(instance: T, assocValues: {}): Promise<T> {
+    let values = instance as {};
     let assocs = getModelAssociations(this.model);
     let includes = this.options.includes || [];
 
+    // No point doing any operations/reloading if
+    // no includes were set.
+    if (includes.length < 1) {
+      return instance;
+    }
+
     for (let include of includes) {
       let key = include.as;
-      let value = data[key];
+      let target = assocValues[key];
 
       // This is the same across all associations.
-      let method = modelData['set' + Utils.uppercaseFirst(key)];
+      let method = values['set' + Utils.uppercaseFirst(key)];
 
       if (typeof (method) !== 'function') {
         continue;
       }
 
-      method = method.bind(model);
+      method = method.bind(instance);
 
-      // If the value looks empty, deassociate. Otherwise associate.
-      // TODO: Only change associations if they've changed.
-      if (!value) {
+      if (!target) {
         await method(undefined);
-      } else {
-        await method(value);
+
+        continue;
       }
+
+      // FIXME: Any is required here..
+      let coerce = (target: any) => {
+        if (isSequelizeInstance(target)) {
+          return target;
+        }
+
+        // Just a plain instance without the Sequelize sugar.
+        // We need to build it into a Sequelize model
+        // in order for setting the association to work.
+        return include.model.build(_.toPlainObject(target));
+      };
+
+      if (Array.isArray(target)) {
+        target = target.map(t => coerce(t));
+      } else {
+        target = coerce(target);
+      }
+
+      // TODO: Only change associations if they've changed.
+      await method(target);
     }
+
+    // We have to reload the instance here to get any changed data.
+    // FIXME: `reload` is provided by Sequelize but isn't wrapped in Squell yet so we cast any.
+    return Promise.resolve((instance as any).reload({ include: this.compileIncludes() }));
   }
 
   /**
@@ -485,21 +533,21 @@ export class Query<T extends Model> {
    * that ID is added and then update is called.
    * If no primary key was set, the model instance is created then returned.
    *
-   * @param model The model instance.
+   * @param instance The model instance.
    * @param options The create or update options. The relevant will be used depending
    *                on the value of the primary key.
    * @returns A promise that resolves with the saved instance if successful.
    */
-  public async save(model: T, options?: CreateOptions | UpdateOptions): Promise<T> {
+  public async save(instance: T, options?: CreateOptions | UpdateOptions): Promise<T> {
     let primary = this.db.getInternalModelPrimary(this.model);
-    let primaryValue = model[primary.compileLeft()];
+    let primaryValue = instance[primary.compileLeft()];
 
     // If the primary key is set, update.
     // Otherwise create.
     if (primaryValue) {
       let [num, instances] = await this
         .where(m => primary.eq(primaryValue))
-        .update(model, <UpdateOptions> options);
+        .update(instance, <UpdateOptions> options);
 
       // Handle this just in case.
       // Kind of unexpected behaviour, so we just return null.
@@ -509,7 +557,7 @@ export class Query<T extends Model> {
 
       return instances[0];
     } else {
-      return this.create(model, <CreateOptions> options);
+      return this.create(instance, <CreateOptions> options);
     }
   }
 
@@ -520,24 +568,23 @@ export class Query<T extends Model> {
    * Associations will be updated if they have been included before hand.
    *
    * @rejects ValidationError
-   * @param model The model instance to create.
+   * @param instance The model instance to create.
    * @param option Any extra Sequelize create options required.
    * @returns A promise that resolves with the created instance if successful.
    */
-  public async create(model: T, options?: CreateOptions): Promise<T> {
+  public async create(instance: T, options?: CreateOptions): Promise<T> {
     let self = this;
-    let data = _.clone(model);
-    let instance = await Promise.resolve(
+    let assocValues = this.prepareAssociations(instance);
+
+    instance = await Promise.resolve(
       this.internalModel
-        .create(this.prepare(model), options)
+        .create(this.prepareAttributes(instance), options)
         .catch(SequelizeValidationError, async (err: SequelizeValidationError) => {
           return Promise.reject(coerceValidationError(self.model, err));
         })
     );
 
-    await this.associate(instance, data);
-
-    return instance;
+    return this.associate(instance, assocValues);
   }
 
   /**
@@ -551,16 +598,16 @@ export class Query<T extends Model> {
    * This *will not* update any associations.
    *
    * @rejects ValidationError
-   * @param models The array of model instances to create.
+   * @param instances The array of model instances to create.
    * @param options Any extra Sequelize bulk create options required.
    * @returns The array of instances created. See above.
    */
-  public async bulkCreate(models: T[], options?: BulkCreateOptions): Promise<T[]> {
+  public async bulkCreate(instances: T[], options?: BulkCreateOptions): Promise<T[]> {
     let self = this;
 
     return Promise.resolve(
       this.internalModel
-        .bulkCreate(_.map(models, m => self.prepare(m)), options)
+        .bulkCreate(_.map(instances, m => self.prepareAttributes(m)), options)
         .catch(SequelizeValidationError, async (err: SequelizeValidationError) => {
           return Promise.reject(coerceValidationError(self.model, err));
         })
@@ -578,18 +625,18 @@ export class Query<T extends Model> {
    * This can also update multiple instances.
    *
    * @rejects ValidationError
-   * @param model The model partial to update using.
+   * @param instance The model partial to update using.
    * @param options Any extra Sequelize update options required.
    * @return A promise that resolves to a tuple with the number of instances updated and
    *         an array of the instances updated, if successful.
    */
-  public async update(model: Partial<T>, options?: UpdateOptions): Promise<[number, T[]]> {
+  public async update(instance: Partial<T>, options?: UpdateOptions): Promise<[number, T[]]> {
     let self = this;
-    let data = _.clone(model);
+    let assocValues = this.prepareAssociations(instance as T);
     let includes = this.options.includes || [];
     let promise = Promise.resolve(
       this.internalModel
-        .update(this.prepare(model as T), {
+        .update(this.prepareAttributes(instance as T), {
           ... options,
 
           where: this.compileWheres(),
@@ -600,6 +647,7 @@ export class Query<T extends Model> {
         })
     );
 
+    let reloaded = [];
     let [num, instances] = await promise;
 
     // FIXME: The instance return value is only supported in Postgres,
@@ -611,10 +659,10 @@ export class Query<T extends Model> {
     }));
 
     for (let instance of instances) {
-      await this.associate(instance, data);
+      reloaded.push(await this.associate(instance, assocValues));
     }
 
-    return [num, instances];
+    return [num, reloaded];
   }
 
   /**
@@ -627,16 +675,16 @@ export class Query<T extends Model> {
    *
    * This *will not* update any associations.
    *
-   * @param model The model partial to upsert using.
+   * @param instance The model partial to upsert using.
    * @param options Any extra Sequelize upsert options required.
    * @returns A promise that will upsert and contain true if an instance was inserted.
    */
-  public async upsert(model: Partial<T>, options?: UpsertOptions): Promise<boolean> {
+  public async upsert(instance: Partial<T>, options?: UpsertOptions): Promise<boolean> {
     let self = this;
 
     return Promise.resolve(
       this.internalModel
-        .upsert(model as T, {
+        .upsert(instance as T, {
           ... options,
 
           includes: this.compileIncludes()

@@ -275,6 +275,25 @@ describe('Query', () => {
           created.name.should.equal('Gary Oldman');
         });
     });
+
+    it('should create instances with manual associations correctly', async () => {
+      let bruce = await db.query(Actor).where(m => m.name.eq('Bruce Willis')).findOne();
+      let actor = new Actor();
+
+      actor.name = 'Gary Oldman';
+      actor.age = 58;
+
+      // Setting with an ID only should work.
+      actor.mentor = { id: bruce.id } as Actor;
+
+      return db.query(Actor)
+        .include(Actor, m => m.mentor)
+        .create(actor)
+        .then(created => {
+          created.name.should.equal('Gary Oldman');
+          created.mentor.name.should.equal('Bruce Willis');
+        });
+    });
   });
 
   describe('#update', () => {
