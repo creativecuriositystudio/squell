@@ -1,3 +1,7 @@
+# 0.6.1
+
+* Fix include options broken compilation to Sequelize include options
+
 # 0.6.0
 
 * Fix casing of default `through` setting

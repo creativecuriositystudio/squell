@@ -208,7 +208,10 @@ export class Query<T extends Model> {
     };
 
     if (Array.isArray(attrResult)) {
-      [assocKey, extraOptions] = <[Attribute<any>, IncludeOptions]> attrResult;
+      let [assocAttr, assocIncludeOptions] = <[Attribute<any>, IncludeOptions]> attrResult;
+
+      assocKey = assocAttr.compileLeft();
+      extraOptions = assocIncludeOptions;
     } else {
       assocKey = (<Attribute<any>> attrResult).compileLeft();
     }
