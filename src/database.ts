@@ -177,7 +177,7 @@ export class Database extends Safe {
         let targetModel = this.internalModels[targetOptions.name];
         let mappedAssoc = {
           as: key,
-          through: _.camelCase(modelOptions.name + targetOptions.name),
+          through: _.camelCase(modelOptions.name + '-' + targetOptions.name),
 
           ... getAssociationOptions(model, key)
         };

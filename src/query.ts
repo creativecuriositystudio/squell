@@ -197,21 +197,35 @@ export class Query<T extends Model> {
    * @returns The eagerly-loaded query.
    */
   public include<U extends Model>(model: ModelConstructor<U>,
-                                  attr: (attrs: ModelAttributes<T>) => Attribute<any>,
+                                  attr: (attrs: ModelAttributes<T>) => Attribute<any> | [Attribute<any>, IncludeOptions],
                                   query?: (query: Query<U>) => Query<U>): Query<T> {
     let includes = this.options.includes || [];
-    let key = attr(getAttributes(this.model)).compileLeft();
-    let assocOptions = getAssociationOptions(this.model, key);
+    let attrResult = attr(getAttributes(this.model));
+    let assocKey;
+    let extraOptions = {};
     let includeOptions = {
-      model: this.db.getInternalModel(model),
-      as: assocOptions && assocOptions.as ? assocOptions.as : key
+      model: this.db.getInternalModel(model)
+    };
+
+    if (Array.isArray(attrResult)) {
+      [assocKey, extraOptions] = <[Attribute<any>, IncludeOptions]> attrResult;
+    } else {
+      assocKey = (<Attribute<any>> attrResult).compileLeft();
+    }
+
+    let assocOptions = getAssociationOptions(this.model, assocKey);
+
+    includeOptions = {
+      as: assocOptions && assocOptions.as ? assocOptions.as : assocKey,
+
+      ... includeOptions,
+      ... extraOptions
     };
 
     // If the association has been defined,
     // use the as option from there. This allows
     // users of the library to provide custom `as` options
     // and we can still query them correctly.
-
     if (query) {
       includeOptions = {
         ... query(new Query<U>(this.db, model)).compileFindOptions(),
@@ -219,7 +233,11 @@ export class Query<T extends Model> {
       };
     }
 
-    let options = { ... this.options, includes: includes.concat([includeOptions]) };
+    let options = {
+      ... this.options,
+
+      includes: includes.concat([includeOptions])
+    };
 
     return new Query<T>(this.db, this.model, options);
   }

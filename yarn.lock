@@ -974,9 +974,9 @@ mocha@^3.2.0:
     mkdirp "0.5.1"
     supports-color "3.1.2"
 
-"modelsafe@>= 0.5.1":
-  version "0.5.1"
-  resolved "https://registry.yarnpkg.com/modelsafe/-/modelsafe-0.5.1.tgz#4a62ba6c0070e64d7c53314f5e54c50037fab336"
+"modelsafe@>= 0.5.2":
+  version "0.5.2"
+  resolved "https://registry.yarnpkg.com/modelsafe/-/modelsafe-0.5.2.tgz#7192368eee1f7a0f04a65b2eccffce423ee4b983"
   dependencies:
     "@types/lodash" "^4.14.53"
     "@types/reflect-metadata" "0.0.5"

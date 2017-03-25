@@ -1,3 +1,9 @@
+# 0.6.0
+
+* Fix casing of default `through` setting
+* Support providing include options in `include` for setting things like `required` off
+  or manually overriding the `as` of a eager-load
+
 # 0.5.2
 
 * Fix association saving to support setting associations with an include flag
