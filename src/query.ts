@@ -12,7 +12,7 @@ import { FindOptions, WhereOptions, FindOptionsAttributesArray,
          Model as SequelizeModel
        } from 'sequelize';
 
-import { Attribute, PlainAttribute, AssocAttribute, ModelAttributes } from './attribute';
+import { Attribute, PlainAttribute, AssocAttribute, ColumnAttribute, ModelAttributes } from './attribute';
 import { getAssociationOptions } from './metadata';
 import { Where } from './where';
 import { Database } from './database';
@@ -773,7 +773,8 @@ export class Query<T extends Model> {
    * @returns The Sequelize representation.
    */
   public compileOrderings(): any {
-    return this.options.orderings.map(o => [o[0].compileRight(), o[1].toString()]);
+    return this.options.orderings.map(o => [o[0] instanceof PlainAttribute ? o[0].compileLeft() : o[0].compileRight(),
+      o[1].toString()]);
   }
 
   /**

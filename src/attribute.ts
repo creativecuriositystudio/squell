@@ -6,6 +6,15 @@ import { col as sequelizeCol, fn as sequelizeFn } from 'sequelize';
 import { Where } from './where';
 
 /**
+ * Construct a plain attribute.
+ * This should be used for simple attribute references
+ * and fully supports the type-safe capabilities of Squell.
+ */
+export function plain(name: string): Attribute<any> {
+  return new PlainAttribute(name);
+}
+
+/**
  * Construct a column attribute.
  * This will function the same as the Sequelize function
  * with the same name when used in a query, but will
