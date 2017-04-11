@@ -10,7 +10,9 @@
     "noImplicitAny": true,
     "suppressImplicitAnyIndexErrors": true,
     "allowSyntheticDefaultImports": true,
-    "declaration": true
+    "declaration": true,
+    "types": ["node", "mocha", "lodash"],
+    "typeRoots": ["./node_modules/@types"]
   },
   "exclude": [
     "dist",

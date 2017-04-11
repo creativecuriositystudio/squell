@@ -93,7 +93,7 @@ describe('Query', () => {
 
       options.should.deepEqual({
         where: { name: 'Bruce Willis' },
-        order: [[sequelize.col('name'), 'DESC']],
+        order: [['name', 'DESC']],
         attributes: [sequelize.col('name')],
         limit: 5,
         offset: 5
