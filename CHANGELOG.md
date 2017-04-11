@@ -1,5 +1,12 @@
 # 0.6.1
 
+* Treat plain attributes passed to `order` as a path, and map the path into a
+  fully-disambiguous model path. Prevents disambiguous attr names, and allows ordering
+  on child attrs
+* Add `plain` for creating `PlainAttribute`s easily
+
+# 0.6.1
+
 * Fix include options broken compilation to Sequelize include options
 
 # 0.6.0
