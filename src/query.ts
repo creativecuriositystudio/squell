@@ -1,7 +1,7 @@
 /** Contains the type-safe querying interface that wraps Sequelize queries. */
 import * as _ from 'lodash';
 import * as sequelize from 'sequelize';
-import { Model, ModelConstructor, ModelErrors, ValidationError,
+import { Model, ModelConstructor, ModelErrors, ValidationError, isLazyLoad,
          getAttributes as getModelAttributes,
          getAssociations as getModelAssociations } from 'modelsafe';
 import { FindOptions, WhereOptions, FindOptionsAttributesArray,
@@ -773,8 +773,25 @@ export class Query<T extends Model> {
    * @returns The Sequelize representation.
    */
   public compileOrderings(): any {
-    return this.options.orderings.map(o => [o[0] instanceof PlainAttribute ? o[0].compileLeft() : o[0].compileRight(),
-      o[1].toString()]);
+    return this.options.orderings.map(o => {
+      const order = o[1].toString();
+      // If this isn't a plain attribute then pass it on as is
+      if (!(o[0] instanceof PlainAttribute)) return [o[0].compileRight(), order];
+
+      // Otherwise split the attribute into keys and build a model path to it
+      const keys = o[0].compileLeft().split('.');
+      let parentModel = this.model;
+
+      const path = _.map(keys, (key: string, i: number) => {
+        if (i === keys.length - 1) return key;
+
+        const model = getModelAssociations(parentModel)[key].target;
+        parentModel = (isLazyLoad(model) ? (model as Function)() : model);
+        return { model: this.db.getInternalModel(parentModel), as: key };
+      });
+
+      return path.concat([order]);
+    });
   }
 
   /**
