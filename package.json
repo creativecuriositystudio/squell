@@ -1,6 +1,6 @@
 {
   "name": "squell",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "main": "dist/index.js",
   "bugs": "https://github.com/creativecuriositystudio/squell/issues",
   "keywords": [
@@ -19,7 +19,7 @@
   ],
   "scripts": {
     "prepush": "npm run lint && npm run test",
-    "prepublish": "tsc",
+    "prepublish": "npm run build",
     "build": "tsc",
     "docs": "typedoc --out docs src/index.ts",
     "test": "mocha --opts mocha.opts",
@@ -34,17 +34,17 @@
     "@types/should": "^8.1.30",
     "husky": "^0.13.2",
     "mocha": "^3.2.0",
-    "modelsafe": ">= 0.5.2",
+    "modelsafe": ">= 0.7.1 < 0.8.0",
     "sequelize": "^4.0.0-2",
     "should": "^11.1.2",
     "sqlite": "^2.2.4",
     "ts-node": "^1.7.2",
-    "tslint": "^4.3.0",
-    "tslint-config-ccs": "^0.3.3",
+    "tslint": "^5.0.0",
+    "tslint-config-ccs": "^0.5.0",
     "typedoc": "^0.5.1"
   },
   "peerDependencies": {
-    "modelsafe": ">= 0.5.2",
+    "modelsafe": ">= 0.7.1 < 0.8.0",
     "sequelize": "^4.0.0-2"
   },
   "dependencies": {
@@ -53,6 +53,6 @@
     "@types/sequelize": "^4.0.39",
     "lodash": "^4.17.4",
     "reflect-metadata": "^0.1.8",
-    "typescript": "^2.1.4"
+    "typescript": "^2.2.0"
   }
 }

@@ -335,7 +335,7 @@ describe('Query', () => {
 
   describe('#findById', () => {
     it('should find existing records by ID', async () => {
-      let [actor, created] = await db.query(Actor)
+      let [actor] = await db.query(Actor)
         .where(m => m.name.eq('Gary Oldman').and(m.age.eq(58)))
         .findOrCreate();
 

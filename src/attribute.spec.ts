@@ -2,9 +2,7 @@
 import sequelize from 'sequelize';
 import 'should';
 
-import { PlainAttribute, ConstantAttribute, FunctionAttribute,
-         AliasAttribute, ColumnAttribute, constant, fn, col,
-       } from './attribute';
+import { PlainAttribute, constant, fn, col } from './attribute';
 
 describe('Attribute', () => {
   let attr = new PlainAttribute('name');

@@ -1,18 +1,17 @@
 /** Contains the type-safe querying interface that wraps Sequelize queries. */
 import * as _ from 'lodash';
-import * as sequelize from 'sequelize';
 import { Model, ModelConstructor, ModelErrors, ValidationError, isLazyLoad,
          getAttributes as getModelAttributes,
          getAssociations as getModelAssociations } from 'modelsafe';
 import { FindOptions, WhereOptions, FindOptionsAttributesArray,
-         DestroyOptions, TruncateOptions, RestoreOptions,
+         DestroyOptions, RestoreOptions,
          CountOptions, AggregateOptions, CreateOptions, UpdateOptions,
          BulkCreateOptions, UpsertOptions, FindOrInitializeOptions,
          IncludeOptions, Utils, ValidationError as SequelizeValidationError,
          Model as SequelizeModel
        } from 'sequelize';
 
-import { Attribute, PlainAttribute, AssocAttribute, ColumnAttribute, ModelAttributes } from './attribute';
+import { Attribute, PlainAttribute, AssocAttribute, ModelAttributes } from './attribute';
 import { getAssociationOptions } from './metadata';
 import { Where } from './where';
 import { Database } from './database';
@@ -79,7 +78,12 @@ function coerceValidationError<T extends Model>(
     errors[key] = [];
   }
 
-  return new ValidationError<T>(ctor, err.message, errors as ModelErrors<T>);
+  let result = new ValidationError<T>(ctor, err.message, errors as ModelErrors<T>);
+
+  // Merge the stack.
+  result.stack = `${result.stack}\ncaused by ${err.stack}`;
+
+  return result;
 }
 
 /**
@@ -208,12 +212,12 @@ export class Query<T extends Model> {
     };
 
     if (Array.isArray(attrResult)) {
-      let [assocAttr, assocIncludeOptions] = <[Attribute<any>, IncludeOptions]> attrResult;
+      let [assocAttr, assocIncludeOptions] = attrResult as [Attribute<any>, IncludeOptions];
 
       assocKey = assocAttr.compileLeft();
       extraOptions = assocIncludeOptions;
     } else {
-      assocKey = (<Attribute<any>> attrResult).compileLeft();
+      assocKey = (attrResult as Attribute<any>).compileLeft();
     }
 
     let assocOptions = getAssociationOptions(this.model, assocKey);
@@ -490,7 +494,6 @@ export class Query<T extends Model> {
    */
   private async associate(instance: T, assocValues: {}): Promise<T> {
     let values = instance as {};
-    let assocs = getModelAssociations(this.model);
     let includes = this.options.includes || [];
 
     // No point doing any operations/reloading if
@@ -567,8 +570,8 @@ export class Query<T extends Model> {
     // Otherwise create.
     if (primaryValue) {
       let [num, instances] = await this
-        .where(m => primary.eq(primaryValue))
-        .update(instance, <UpdateOptions> options);
+        .where(_m => primary.eq(primaryValue))
+        .update(instance, options as UpdateOptions);
 
       // Handle this just in case.
       // Kind of unexpected behaviour, so we just return null.
@@ -578,7 +581,7 @@ export class Query<T extends Model> {
 
       return instances[0];
     } else {
-      return this.create(instance, <CreateOptions> options);
+      return this.create(instance, options as CreateOptions);
     }
   }
 
@@ -654,7 +657,6 @@ export class Query<T extends Model> {
   public async update(instance: Partial<T>, options?: UpdateOptions): Promise<[number, T[]]> {
     let self = this;
     let assocValues = this.prepareAssociations(instance as T);
-    let includes = this.options.includes || [];
     let promise = Promise.resolve(
       this.internalModel
         .update(this.prepareAttributes(instance as T), {
@@ -786,7 +788,10 @@ export class Query<T extends Model> {
         if (i === keys.length - 1) return key;
 
         const model = getModelAssociations(parentModel)[key].target;
+
+        // tslint:disable-next-line:ban-types
         parentModel = (isLazyLoad(model) ? (model as Function)() : model);
+
         return { model: this.db.getInternalModel(parentModel), as: key };
       });
 

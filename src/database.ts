@@ -2,13 +2,13 @@
 import 'reflect-metadata';
 import * as _ from 'lodash';
 import * as Sequelize from 'sequelize';
-import { Model, ModelConstructor, Safe, AssociationType, AttributeType, InternalAttributeType,
+import { Model, ModelConstructor, Safe, AttributeType, InternalAttributeType,
          ArrayAttributeTypeOptions, EnumAttributeTypeOptions, isLazyLoad,
-         getModelOptions, getAttributes, getAssociations, AssociationTarget,
+         getModelOptions, getAttributes, getAssociations,
          HAS_ONE, HAS_MANY, BELONGS_TO, BELONGS_TO_MANY } from 'modelsafe';
 import { DestroyOptions, DropOptions, Options as SequelizeOptions,
          Sequelize as Connection, SyncOptions, Transaction, Model as SequelizeModel,
-         DefineOptions, DefineAttributeColumnOptions, DefineAttributes,
+         DefineAttributeColumnOptions, DefineAttributes,
          DataTypeAbstract, STRING, CHAR, TEXT, INTEGER, BIGINT, FLOAT,
          REAL, DOUBLE, DECIMAL, BOOLEAN, TIME, DATE, JSON, JSONB,
          BLOB, ENUM, ARRAY
@@ -42,19 +42,19 @@ function mapType(type: AttributeType): DataTypeAbstract {
   case InternalAttributeType.JSONB: return JSONB;
   case InternalAttributeType.BLOB: return BLOB;
   case InternalAttributeType.ENUM: {
-    if (!type.options || !(<EnumAttributeTypeOptions> type.options).values) {
+    if (!type.options || !(type.options as EnumAttributeTypeOptions).values) {
       return null;
     }
 
-    return ENUM.apply(ENUM, (<EnumAttributeTypeOptions> type.options).values);
+    return ENUM.apply(ENUM, (type.options as EnumAttributeTypeOptions).values);
   }
 
   case InternalAttributeType.ARRAY: {
-    if (!type.options || !(<ArrayAttributeTypeOptions> type.options).contained) {
+    if (!type.options || !(type.options as ArrayAttributeTypeOptions).contained) {
       return null;
     }
 
-    return ARRAY(mapType((<ArrayAttributeTypeOptions> type.options).contained));
+    return ARRAY(mapType((type.options as ArrayAttributeTypeOptions).contained));
   }
 
   default: return null;
@@ -157,7 +157,7 @@ export class Database extends Safe {
         let target = assocOptions.target;
 
         if (isLazyLoad(target)) {
-          target = (<() => ModelConstructor<any>> target)();
+          target = (target as () => ModelConstructor<any>)();
         }
 
         if (typeof (type) === 'undefined') {

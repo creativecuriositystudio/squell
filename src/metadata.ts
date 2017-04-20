@@ -1,3 +1,4 @@
+/* tslint:disable:ban-types */
 import 'reflect-metadata';
 import { Model } from 'modelsafe';
 import { DefineAttributeColumnOptions, DefineOptions, AssociationOptionsBelongsTo,
@@ -38,7 +39,7 @@ export function defineModelOptions<T extends Model>(ctor: Function, options: Par
  * @param options The association options.
  */
 export function defineAssociationOptions(
-  ctor: Object,
+  ctor: object,
   key: string | symbol,
   options: Partial<AssociationOptionsBelongsTo    |
                    AssociationOptionsHasOne       |
@@ -60,7 +61,7 @@ export function defineAssociationOptions(
  * @param key The attribute's property key.
  * @param options The attribute options.
  */
-export function defineAttributeOptions(ctor: Object, key: string | symbol, options: Partial<DefineAttributeColumnOptions>) {
+export function defineAttributeOptions(ctor: object, key: string | symbol, options: Partial<DefineAttributeColumnOptions>) {
   options = {
     ... Reflect.getMetadata(MODEL_ATTR_OPTIONS_META_KEY, ctor, key),
     ... options
@@ -123,7 +124,7 @@ export function model<T extends Model>(options: Partial<DefineOptions<T>>) {
  * @param options The Sequelize attribute options.
  */
 export function attr(options: Partial<DefineAttributeColumnOptions>) {
-  return (ctor: Object, key: string | symbol) => defineAttributeOptions(ctor, key, options);
+  return (ctor: object, key: string | symbol) => defineAttributeOptions(ctor, key, options);
 }
 
 /**
@@ -137,5 +138,5 @@ export function assoc(options: Partial<AssociationOptionsBelongsTo    |
                                        AssociationOptionsHasOne       |
                                        AssociationOptionsHasMany      |
                                        AssociationOptionsBelongsToMany>) {
-  return (ctor: Object, key: string | symbol) => defineAssociationOptions(ctor, key, options);
+  return (ctor: object, key: string | symbol) => defineAssociationOptions(ctor, key, options);
 }

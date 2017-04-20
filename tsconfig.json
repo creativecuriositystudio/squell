@@ -5,14 +5,13 @@
     "moduleResolution": "node",
     "sourceMap": true,
     "outDir": "dist",
-    "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "noImplicitAny": true,
     "suppressImplicitAnyIndexErrors": true,
     "allowSyntheticDefaultImports": true,
     "declaration": true,
-    "types": ["node", "mocha", "lodash"],
-    "typeRoots": ["./node_modules/@types"]
+    "noUnusedParameters": true,
+    "noUnusedLocals": true
   },
   "exclude": [
     "dist",
