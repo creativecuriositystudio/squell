@@ -1,6 +1,6 @@
 {
   "name": "squell",
-  "version": "0.7.0",
+  "version": "0.8.1",
   "main": "dist/index.js",
   "bugs": "https://github.com/creativecuriositystudio/squell/issues",
   "keywords": [

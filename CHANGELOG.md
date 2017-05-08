@@ -1,3 +1,9 @@
+# 0.8.1
+
+* Added includeAll() for including all associations on a query
+* Fixed an include bug that caused shadowing of assoc ids and thus notNull validation errors
+* Lost a minor version along the way somewhere
+
 # 0.7.0
 
 * Bump to ModelSafe `0.7.1`
