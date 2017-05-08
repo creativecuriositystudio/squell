@@ -250,6 +250,30 @@ export class Query<T extends Model> {
   }
 
   /**
+   * Eager load all association models with the query.
+   *
+   * @returns The eagerly-loaded query.
+   */
+  public includeAll(): Query<T> {
+    let query: Query<T> = this;
+    const assocs = getModelAssociations(this.model);
+
+    for (let key of Object.keys(assocs)) {
+      let options = assocs[key];
+      let target = options.target;
+
+      // Lazily load the target if required.
+      if (isLazyLoad(target)) {
+        target = (target as () => ModelConstructor<any>)();
+      }
+
+      query = query.include(target as ModelConstructor<any>, _ => new AssocAttribute(key));
+    }
+
+    return query;
+  }
+
+  /**
    * Order the future results of a query.
    *
    * @params map A function that will take the queried model attributes
@@ -516,7 +540,8 @@ export class Query<T extends Model> {
       method = method.bind(instance);
 
       if (!target) {
-        await method(undefined);
+        // FIXME this needs to use the real attr name + 'Id', not the 'as' name
+        await method(values[key + 'Id']);
 
         continue;
       }
