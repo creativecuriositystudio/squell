@@ -633,7 +633,7 @@ export class Query<T extends Model> {
         })
     );
 
-    return this.associate(instance, assocValues, options.transaction);
+    return this.associate(instance, assocValues, options ? options.transaction : null);
   }
 
   /**
@@ -707,7 +707,7 @@ export class Query<T extends Model> {
     }));
 
     for (let instance of instances) {
-      reloaded.push(await this.associate(instance, assocValues, options.transaction));
+      reloaded.push(await this.associate(instance, assocValues, options ? options.transaction : null));
     }
 
     return [num, reloaded];
