@@ -1,3 +1,8 @@
+# 0.9.0
+
+* Added `transaction` param to `associate()` to allow association calls to be transacted
+* Transacted `associate` and `reload` calls in `create()` and `update()`
+
 # 0.8.1
 
 * Added includeAll() for including all associations on a query
