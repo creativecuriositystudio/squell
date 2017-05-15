@@ -8,7 +8,7 @@ import { FindOptions, WhereOptions, FindOptionsAttributesArray,
          CountOptions, AggregateOptions, CreateOptions, UpdateOptions,
          BulkCreateOptions, UpsertOptions, FindOrInitializeOptions,
          IncludeOptions, Utils, ValidationError as SequelizeValidationError,
-         Model as SequelizeModel
+         Model as SequelizeModel, Transaction,
        } from 'sequelize';
 
 import { Attribute, PlainAttribute, AssocAttribute, ModelAttributes } from './attribute';
@@ -516,7 +516,7 @@ export class Query<T extends Model> {
    * @param assocValues The associations of the instance, as a plain object.
    * @returns A promise that associates the instance and returns a reloaded instance afterwards.
    */
-  private async associate(instance: T, assocValues: {}): Promise<T> {
+  private async associate(instance: T, assocValues: {}, transaction?: Transaction): Promise<T> {
     let values = instance as {};
     let includes = this.options.includes || [];
 
@@ -541,7 +541,7 @@ export class Query<T extends Model> {
 
       if (!target) {
         // FIXME this needs to use the real attr name + 'Id', not the 'as' name
-        await method(values[key + 'Id']);
+        await method(values[key + 'Id'], { transaction });
 
         continue;
       }
@@ -565,12 +565,12 @@ export class Query<T extends Model> {
       }
 
       // TODO: Only change associations if they've changed.
-      await method(target);
+      await method(target, { transaction });
     }
 
     // We have to reload the instance here to get any changed data.
     // FIXME: `reload` is provided by Sequelize but isn't wrapped in Squell yet so we cast any.
-    return Promise.resolve((instance as any).reload({ include: this.compileIncludes() }));
+    return Promise.resolve((instance as any).reload({ include: this.compileIncludes(), transaction }));
   }
 
   /**
@@ -633,7 +633,7 @@ export class Query<T extends Model> {
         })
     );
 
-    return this.associate(instance, assocValues);
+    return this.associate(instance, assocValues, options.transaction);
   }
 
   /**
@@ -707,7 +707,7 @@ export class Query<T extends Model> {
     }));
 
     for (let instance of instances) {
-      reloaded.push(await this.associate(instance, assocValues));
+      reloaded.push(await this.associate(instance, assocValues, options.transaction));
     }
 
     return [num, reloaded];
