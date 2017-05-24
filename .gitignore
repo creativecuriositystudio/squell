@@ -54,3 +54,4 @@ docs
 
 # Other files
 test.db*
+.vscode
