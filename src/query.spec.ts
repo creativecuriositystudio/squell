@@ -4,7 +4,7 @@ import * as sequelize from 'sequelize';
 import * as modelsafe from 'modelsafe';
 
 import { Database } from './database';
-import { attr } from './metadata';
+import { assoc, attr } from './metadata';
 import { ASC, DESC } from './query';
 
 /* tslint:disable:completed-docs */
@@ -26,6 +26,34 @@ class Actor extends modelsafe.Model {
   @modelsafe.assoc(modelsafe.HAS_ONE, () => Actor)
   public mentee: Actor;
 }
+
+@modelsafe.model()
+class List extends modelsafe.Model {
+  @attr({ autoIncrement: true })
+  @modelsafe.attr(modelsafe.INTEGER, { primary: true })
+  id: number;
+
+  @modelsafe.attr(modelsafe.STRING)
+  public name: string;
+
+  @assoc({ foreignKey: { allowNull: false, name: 'parentId' } })
+  @modelsafe.assoc(modelsafe.HAS_MANY, () => ListItem)
+  public items: ListItem[];
+}
+
+@modelsafe.model()
+class ListItem extends modelsafe.Model {
+  @attr({ autoIncrement: true })
+  @modelsafe.attr(modelsafe.INTEGER, { primary: true })
+  id: number;
+
+  @modelsafe.attr(modelsafe.STRING)
+  public value: string;
+
+  @assoc({ foreignKey: { allowNull: false, name: 'parentId' } })
+  @modelsafe.assoc(modelsafe.BELONGS_TO, List)
+  public parent: List;
+}
 /* tslint:enable-completed-docs */
 
 let db = new Database('sqlite://root:root@localhost/squell_test', {
@@ -34,6 +62,8 @@ let db = new Database('sqlite://root:root@localhost/squell_test', {
 });
 
 db.define(Actor);
+db.define(List);
+db.define(ListItem);
 
 describe('Query', () => {
   beforeEach(async () => {
@@ -294,6 +324,22 @@ describe('Query', () => {
           created.mentor.name.should.equal('Bruce Willis');
         });
     });
+
+    it('should create instances with not null foreign key', async () => {
+      let list = new List({ id: 1, name: 'Test List' });
+      await db.query(List).create(list);
+
+      let item = new ListItem({ value: 'testing' });
+      item.parent = { id: 1 } as List;
+
+      return db.query(ListItem)
+        .include(List, item => item.parent)
+        .create(item)
+        .then(created => {
+          created.value.should.equal(item.value);
+          created.parent.name.should.equal(list.name);
+        });
+    });
   });
 
   describe('#update', () => {
@@ -308,6 +354,21 @@ describe('Query', () => {
         .then((result) => {
           result[0].should.equal(1);
         });
+    });
+
+    it('should update with not null primary key', async () => {
+      let parent = await db.query(List).create(new List({ name: 'Test List' }));
+      let item = new ListItem({ value: 'test value' });
+      item.parent = parent;
+
+      let created = await db.query(ListItem).include(List, m => m.parent).create(item);
+
+      created.value = 'updated';
+
+      let updated = await db.query(ListItem).save(created);
+
+      updated.id.should.equal(created.id);
+      updated.value.should.equal('updated');
     });
   });
 
