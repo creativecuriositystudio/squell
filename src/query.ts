@@ -3,8 +3,8 @@ import * as _ from 'lodash';
 import { Model, ModelConstructor, ModelErrors, ValidationError, isLazyLoad,
          getAttributes as getModelAttributes,
          getAssociations as getModelAssociations } from 'modelsafe';
-import { FindOptions, WhereOptions, FindOptionsAttributesArray,
-         DestroyOptions, RestoreOptions,
+import { Association, BelongsToAssociation, FindOptions, WhereOptions,
+         FindOptionsAttributesArray, DestroyOptions, RestoreOptions,
          CountOptions, AggregateOptions, CreateOptions, UpdateOptions,
          BulkCreateOptions, UpsertOptions, FindOrInitializeOptions,
          IncludeOptions, Utils, ValidationError as SequelizeValidationError,
@@ -116,6 +116,13 @@ function getAttributes<T extends Model>(ctor: ModelConstructor<T>): ModelAttribu
  */
 function isSequelizeInstance(value: any): boolean {
   return typeof (value) === 'object' && value && typeof (value.toJSON) === 'function';
+}
+
+/**
+ * Defines an interface for associative arrays.
+ */
+interface Map<T> {
+  [key: string]: T;
 }
 
 /**
@@ -493,8 +500,33 @@ export class Query<T extends Model> {
    * @param instance The model instance to strip.
    * @returns The stripped model instance.
    */
-  private prepareAttributes(instance: T): T {
-    return _.pick(instance, Object.keys(getModelAttributes(this.model))) as T;
+  private prepareAttributes(instance: T, assocValues: {}): T {
+    // find any associations included that can be set early
+    let early = this.getEarlyAssociations();
+
+    let values = _.pick(instance, [
+      ... Object.keys(getModelAttributes(this.model))
+    ]);
+
+    // add any belongsTo FKs that we know about.
+    Object.keys(early).forEach(as => {
+      let assoc = early[as];
+      let target = assocValues[as];
+
+      // if we never retrieved the target,
+      // don't try and set it otherwise we might
+      // break the association unintentionally.
+      if (target === undefined) {
+        return;
+      }
+
+      // set the association's attribute to the target's identifier
+      values[assoc.identifier] = target.get ?
+        target.get(assoc.targetIdentifier) :
+        target[assoc.targetIdentifier];
+    });
+
+    return values as T;
   }
 
   /**
@@ -505,6 +537,26 @@ export class Query<T extends Model> {
    */
   private prepareAssociations(instance: T): T {
     return _.pick(instance, Object.keys(getModelAssociations(this.model))) as T;
+  }
+
+/**
+ * Returns the associations that correlate to the current include options
+ * @return {Map<Association>} An array of association descriptors.
+ */
+  private getIncludedAssociations(): Map<Association> {
+    return _.pick(this.internalModel.associations,
+      (this.options.includes || []).map(include => include.as)) as Map<Association>;
+  }
+
+  /**
+   * Returns any early associations (associations that can be set via attributes).
+   * @param {Map<BelongsToAssociation>} associations? Optionally filter these associations. If null,
+   *                                                  the current include options will be used.
+   * @return {Map<BelongsToAssociation>} A map of associations that can be bound early.
+   */
+  private getEarlyAssociations(associations?: Map<Association>): Map<BelongsToAssociation> {
+    return _.pickBy((associations || this.getIncludedAssociations()),
+      (assoc: Association) => assoc.associationType === 'BelongsTo') as Map<BelongsToAssociation>;
   }
 
   /**
@@ -519,6 +571,9 @@ export class Query<T extends Model> {
   private async associate(instance: T, assocValues: {}, transaction?: Transaction): Promise<T> {
     let values = instance as {};
     let includes = this.options.includes || [];
+    // find any associations included that can be set early
+    let associations = this.getIncludedAssociations();
+    let early = this.getEarlyAssociations(associations);
 
     // No point doing any operations/reloading if
     // no includes were set.
@@ -528,6 +583,12 @@ export class Query<T extends Model> {
 
     for (let include of includes) {
       let key = include.as;
+
+      // early associations have already been set via attributes, so we can skip this include.
+      if (early[key]) {
+        continue;
+      }
+
       let target = assocValues[key];
 
       // This is the same across all associations.
@@ -627,7 +688,7 @@ export class Query<T extends Model> {
 
     instance = await Promise.resolve(
       this.internalModel
-        .create(this.prepareAttributes(instance), options)
+        .create(this.prepareAttributes(instance, assocValues), options)
         .catch(SequelizeValidationError, async (err: SequelizeValidationError) => {
           return Promise.reject(coerceValidationError(self.model, err));
         })
@@ -656,7 +717,7 @@ export class Query<T extends Model> {
 
     return Promise.resolve(
       this.internalModel
-        .bulkCreate(_.map(instances, m => self.prepareAttributes(m)), options)
+        .bulkCreate(_.map(instances, m => self.prepareAttributes(m, {})), options)
         .catch(SequelizeValidationError, async (err: SequelizeValidationError) => {
           return Promise.reject(coerceValidationError(self.model, err));
         })
@@ -684,7 +745,7 @@ export class Query<T extends Model> {
     let assocValues = this.prepareAssociations(instance as T);
     let promise = Promise.resolve(
       this.internalModel
-        .update(this.prepareAttributes(instance as T), {
+        .update(this.prepareAttributes(instance as T, assocValues), {
           ... options,
 
           where: this.compileWheres(),
