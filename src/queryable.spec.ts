@@ -2,12 +2,12 @@
 import sequelize from 'sequelize';
 import 'should';
 
-import { PlainAttribute, constant, fn, col } from './attribute';
+import { attribute, constant, fn, col } from './queryable';
 
-describe('Attribute', () => {
-  let attr = new PlainAttribute('name');
-  let networthAttr = new PlainAttribute('networth');
-  let ageAttr = new PlainAttribute('age');
+describe('Queryable', () => {
+  let attr = attribute('name');
+  let networthAttr = attribute('networth');
+  let ageAttr = attribute('age');
 
   describe('#eq', () => {
     it('should compile', () => {
@@ -250,8 +250,8 @@ describe('Attribute', () => {
   });
 });
 
-describe('PlainAttribute', () => {
-  let attr = new PlainAttribute('name');
+describe('AttributeQueryable', () => {
+  let attr = attribute('name');
 
   describe('#compileLeft', () => {
     it('should compile', () => {
@@ -266,7 +266,7 @@ describe('PlainAttribute', () => {
   });
 });
 
-describe('ConstantAttribute', () => {
+describe('ConstantQueryable', () => {
   let attr = constant(1234);
 
   describe('#compileLeft', () => {
@@ -282,7 +282,7 @@ describe('ConstantAttribute', () => {
   });
 });
 
-describe('ColumnAttribute', () => {
+describe('ColumnQueryable', () => {
   let attr = col('name');
 
   describe('#compileLeft', () => {
@@ -298,7 +298,7 @@ describe('ColumnAttribute', () => {
   });
 });
 
-describe('FunctionAttribute', () => {
+describe('FunctionQueryable', () => {
   let attr = fn('COUNT', constant('name'));
 
   describe('#compileLeft', () => {
@@ -314,8 +314,8 @@ describe('FunctionAttribute', () => {
   });
 });
 
-describe('AliasAttribute', () => {
-  let attr = new PlainAttribute('name').as('renamed');
+describe('AliasQueryable', () => {
+  let attr = attribute('name').as('renamed');
 
   describe('#compileLeft', () => {
     it('should not compile', () => {

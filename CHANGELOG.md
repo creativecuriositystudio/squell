@@ -1,3 +1,15 @@
+# 1.0.0-alpha.1
+
+* [CHANGE] Moved to ModelSafe alpha 1.0.0-alpha.1
+* [CHANGE] Sequelize models are now correctly serialized to regular ModelSafe model class instances.
+  The ModelSafe models were originally only being used as types and not as proper classes,
+  which means that helper methods and getters/setters defined were not available.
+  This is quite a big change and may break existing code.
+* [CHANGE] The `drop` method of queries has been renamed to `skip` in order
+  to avoid confusion with the database `drop` term (for destroying a database table/schema)
+* [CHANGE] The truncate method of query can now take optional Sequelize truncate options
+* [FEATURE] There is now a new `drop` command on queries for dropping database tables
+
 # 0.9.0
 
 * Added `transaction` param to `associate()` to allow association calls to be transacted

@@ -1,11 +1,11 @@
 /* tslint:disable:no-magic-numbers */
 import 'should';
 
-import { PlainAttribute } from './attribute';
+import { attribute } from './queryable';
 
 describe('Where', () => {
-  let attr = new PlainAttribute('name');
-  let ageAttr = new PlainAttribute('age');
+  let attr = attribute('name');
+  let ageAttr = attribute('age');
 
   describe('#and', () => {
     it('should compile', () => {

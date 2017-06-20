@@ -12,6 +12,7 @@ import { ASC, DESC } from './query';
 class Actor extends modelsafe.Model {
   @attr({ autoIncrement: true })
   @modelsafe.attr(modelsafe.INTEGER, { primary: true })
+  @modelsafe.optional
   id: number;
 
   @modelsafe.attr(modelsafe.STRING)
@@ -31,6 +32,7 @@ class Actor extends modelsafe.Model {
 class List extends modelsafe.Model {
   @attr({ autoIncrement: true })
   @modelsafe.attr(modelsafe.INTEGER, { primary: true })
+  @modelsafe.optional
   id: number;
 
   @modelsafe.attr(modelsafe.STRING)
@@ -45,6 +47,7 @@ class List extends modelsafe.Model {
 class ListItem extends modelsafe.Model {
   @attr({ autoIncrement: true })
   @modelsafe.attr(modelsafe.INTEGER, { primary: true })
+  @modelsafe.optional
   id: number;
 
   @modelsafe.attr(modelsafe.STRING)
@@ -57,7 +60,7 @@ class ListItem extends modelsafe.Model {
 /* tslint:enable-completed-docs */
 
 let db = new Database('sqlite://root:root@localhost/squell_test', {
-  storage: 'test.db',
+  storage: ':memory:',
   logging: !!process.env.LOG_TEST_SQL
 });
 
@@ -118,7 +121,7 @@ describe('Query', () => {
         .attributes(m => [m.name])
         .order(m => [[m.name, DESC]])
         .take(5)
-        .drop(5)
+        .skip(5)
         .compileFindOptions();
 
       options.should.deepEqual({
@@ -152,7 +155,7 @@ describe('Query', () => {
         });
     });
 
-    it('should find one 50 yo when dropped', async () => {
+    it('should find one 50 yo when taken', async () => {
       return db.query(Actor)
         .where(m => m.age.lt(50))
         .take(1)

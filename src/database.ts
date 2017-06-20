@@ -2,19 +2,19 @@
 import 'reflect-metadata';
 import * as _ from 'lodash';
 import * as Sequelize from 'sequelize';
-import { Model, ModelConstructor, Safe, AttributeType, InternalAttributeType,
+import { Model, ModelConstructor, AttributeType, InternalAttributeType,
          ArrayAttributeTypeOptions, EnumAttributeTypeOptions, isLazyLoad,
          getModelOptions, getAttributes, getAssociations,
          HAS_ONE, HAS_MANY, BELONGS_TO, BELONGS_TO_MANY } from 'modelsafe';
 import { DestroyOptions, DropOptions, Options as SequelizeOptions,
          Sequelize as Connection, SyncOptions, Transaction, Model as SequelizeModel,
          DefineAttributeColumnOptions, DefineAttributes,
-         DataTypeAbstract, STRING, CHAR, TEXT, INTEGER, BIGINT, FLOAT,
-         REAL, DOUBLE, DECIMAL, BOOLEAN, TIME, DATE, JSON, JSONB,
+         DataTypeAbstract, STRING, CHAR, TEXT, INTEGER, BIGINT,
+         DOUBLE, BOOLEAN, TIME, DATE, JSON,
          BLOB, ENUM, ARRAY
        } from 'sequelize';
 
-import { Attribute, PlainAttribute } from './attribute';
+import { Queryable, attribute } from './queryable';
 import { getModelOptions as getSquellOptions, getAttributeOptions, getAssociationOptions } from './metadata';
 import { Query } from './query';
 
@@ -31,15 +31,11 @@ function mapType(type: AttributeType): DataTypeAbstract {
   case InternalAttributeType.TEXT: return TEXT;
   case InternalAttributeType.INTEGER: return INTEGER;
   case InternalAttributeType.BIGINT: return BIGINT;
-  case InternalAttributeType.FLOAT: return FLOAT;
-  case InternalAttributeType.REAL: return REAL;
-  case InternalAttributeType.DOUBLE: return DOUBLE;
-  case InternalAttributeType.DECIMAL: return DECIMAL;
+  case InternalAttributeType.REAL: return DOUBLE;
   case InternalAttributeType.BOOLEAN: return BOOLEAN;
   case InternalAttributeType.TIME: return TIME;
   case InternalAttributeType.DATE: return DATE;
-  case InternalAttributeType.JSON: return JSON;
-  case InternalAttributeType.JSONB: return JSONB;
+  case InternalAttributeType.OBJECT: return JSON;
   case InternalAttributeType.BLOB: return BLOB;
   case InternalAttributeType.ENUM: {
     if (!type.options || !(type.options as EnumAttributeTypeOptions).values) {
@@ -67,9 +63,12 @@ function mapType(type: AttributeType): DataTypeAbstract {
  * for querying a database, as the models are defined separately
  * to the database via extending the abstract model class.
  */
-export class Database extends Safe {
+export class Database {
   /** The Sequelize connection. */
   public conn: Connection;
+
+  /** The ModelSafe models to be used with Sequelize. */
+  protected models: { [key: string]: ModelConstructor<Model>; };
 
   /**
    * The internal Sequelize models.
@@ -88,10 +87,48 @@ export class Database extends Safe {
    * @param options Any additional Sequelize options, e.g. connection pool count.
    */
   constructor(url: string, options?: SequelizeOptions) {
-    super();
-
     this.conn = new Sequelize(url, options);
+    this.models = {};
     this.internalModels = {};
+  }
+
+  /**
+   * Checks if a ModelSafe model has already been defined on the database.
+   *
+   * @param model The model constructor.
+   * @returns Whether the model has been defined on the database.
+   */
+  isDefined<T extends Model>(model: ModelConstructor<T>): boolean {
+    let options = getModelOptions(model);
+
+    return options.name && !!this.models[options.name];
+  }
+
+  /**
+   * Define a ModelSafe model on the database.
+   * A model must be defined on the database in order for it
+   * to be synced to the database and then queried.
+   *
+   * @param model The model constructor.
+   * @returns The database with the model defined, allowing for chaining definition calls.
+   *          The database is still mutated.
+   */
+  define<T extends Model>(model: ModelConstructor<T>): Database {
+    let options = getModelOptions(model);
+
+    // We need a model name in order to use the provided model
+    if (!options.name) {
+      throw new Error('Models must have a model name and be decorated with @model to be defined on a safe');
+    }
+
+    // Only define a model once
+    if (this.isDefined(model)) {
+      return this;
+    }
+
+    this.models[options.name] = model;
+
+    return this;
   }
 
   /**
@@ -283,9 +320,9 @@ export class Database extends Safe {
    * @param model The model class to get the primary attribute for.
    *              The model must be defined on the database before it can be queried.
    */
-  public getInternalModelPrimary<T, U extends Model>(model: ModelConstructor<U>): Attribute<T> {
+  public getInternalModelPrimary<T, U extends Model>(model: ModelConstructor<U>): Queryable<T> {
     // FIXME: Wish we didn't have to cast any here, but primaryKeyAttribute isn't exposed
     // by the Sequelize type definitions.
-    return new PlainAttribute<T>((this.getInternalModel<U>(model) as any).primaryKeyAttribute);
+    return attribute((this.getInternalModel<U>(model) as any).primaryKeyAttribute);
   }
 }

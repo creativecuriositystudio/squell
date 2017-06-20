@@ -3,15 +3,16 @@ import * as _ from 'lodash';
 import { Model, ModelConstructor, ModelErrors, ValidationError, isLazyLoad,
          getAttributes as getModelAttributes,
          getAssociations as getModelAssociations } from 'modelsafe';
-import { Association, BelongsToAssociation, FindOptions, WhereOptions,
+import { FindOptions, WhereOptions, BelongsToAssociation,
          FindOptionsAttributesArray, DestroyOptions, RestoreOptions,
-         CountOptions, AggregateOptions, CreateOptions, UpdateOptions,
+         CountOptions, AggregateOptions, CreateOptions as SequelizeCreateOptions,
+         UpdateOptions as SequelizeUpdateOptions,
          BulkCreateOptions, UpsertOptions, FindOrInitializeOptions,
          IncludeOptions, Utils, ValidationError as SequelizeValidationError,
-         Model as SequelizeModel, Transaction,
+         Model as SequelizeModel, Transaction, TruncateOptions, DropOptions, Instance
        } from 'sequelize';
 
-import { Attribute, PlainAttribute, AssocAttribute, ModelAttributes } from './attribute';
+import { Queryable, AttributeQueryable, AssociationQueryable, ModelQueryables } from './queryable';
 import { getAssociationOptions } from './metadata';
 import { Where } from './where';
 import { Database } from './database';
@@ -25,8 +26,8 @@ export const DESC: Order = 'DESC';
 /** Represents ascending order. */
 export const ASC: Order  = 'ASC';
 
-/** Represents the ordering of an attribute. */
-export type AttributeOrder<T> = [Attribute<T>, Order];
+/** Represents the ordering of a queryable. */
+export type QueryableOrder<T> = [Queryable<T>, Order];
 
 /**
  * Query options for a Squell query.
@@ -36,19 +37,31 @@ export interface QueryOptions {
   wheres: Where[];
 
   /** The array of attribute filters for the query. */
-  attrs: Attribute<any>[];
+  attrs: Queryable<any>[];
 
   /** The array of association filters for the query. */
   includes: IncludeOptions[];
 
   /** The array of attribute orderings for the query. */
-  orderings: AttributeOrder<any>[];
+  orderings: QueryableOrder<any>[];
 
-  /** The number of records to drop (i.e. OFFSET). */
-  dropped: number;
+  /** The number of records to skip (i.e. OFFSET). */
+  skipped: number;
 
   /** The number of records to take (i.e. LIMIT). */
   taken: number;
+}
+
+/** Extra options for updating model instances. */
+export interface UpdateOptions extends SequelizeUpdateOptions {
+  /** Whether or not to automatically update associated instances. */
+  associate?: boolean;
+}
+
+/** Extra options for creating model instances. */
+export interface CreateOptions extends SequelizeCreateOptions {
+  /** Whether or not to automatically update associated instances. */
+  associate?: boolean;
 }
 
 /**
@@ -87,42 +100,37 @@ function coerceValidationError<T extends Model>(
 }
 
 /**
- * Get the attributes of a model as a mapped type.
+ * Coerces a ModelSafe model instance to a Sequelize model instance.
+ *
+ * @param internalModel The Sequelize model.
+ * @param instance The ModelSafe model instance.
+ * @returns The Sequelize model instance coerced.
+ */
+export async function coerceInstance<T extends Model>(internalModel: SequelizeModel<T, T>,
+                                                      instance: T): Promise<Instance<T>> {
+  return internalModel.build(await instance.serialize() as T, { isNewRecord: false }) as any as Instance<T>;
+}
+
+/**
+ * Get the queryable properties of a model as a mapped type.
  *
  * @param ctor The model constructor.
- * @returns The mapped attributes type.hi
+ * @returns The mapped queryable properties.
  */
-function getAttributes<T extends Model>(ctor: ModelConstructor<T>): ModelAttributes<T> {
+function getQueryables<T extends Model>(ctor: ModelConstructor<T>): ModelQueryables<T> {
   let result = {};
   let attrs = getModelAttributes(ctor);
   let assocs = getModelAssociations(ctor);
 
   for (let key of Object.keys(attrs)) {
-    result[key] = new PlainAttribute(key);
+    result[key] = new AttributeQueryable(key);
   }
 
   for (let key of Object.keys(assocs)) {
-    result[key] = new AssocAttribute(key);
+    result[key] = new AssociationQueryable(key);
   }
 
-  return result as ModelAttributes<T>;
-}
-
-/**
- * Check if an any value is a Sequelize instance.
- *
- * @param value The value to check.
- * @returns Whether the value is a Sequelize instance.
- */
-function isSequelizeInstance(value: any): boolean {
-  return typeof (value) === 'object' && value && typeof (value.toJSON) === 'function';
-}
-
-/**
- * Defines an interface for associative arrays.
- */
-interface Map<T> {
-  [key: string]: T;
+  return result as ModelQueryables<T>;
 }
 
 /**
@@ -148,12 +156,7 @@ export class Query<T extends Model> {
    * rather the query function on a database connection should be used.
    *
    * @param model The model class.
-   * @param internalModel The internal Sequelize representation of the model.
-   * @param wheres The array of where queries.
-   * @param attrs The array of attribute filters.
-   * @param orderings The array of attribute orderings.
-   * @param dropped The number of records to be dropped.
-   * @param taken The number of records to be taken.
+   * @param options The query options.
    */
   constructor(db: Database, model: ModelConstructor<T>, options?: QueryOptions) {
     this.db = db;
@@ -161,7 +164,7 @@ export class Query<T extends Model> {
     this.internalModel = db.getInternalModel<T>(model);
     this.options = {
       wheres: [],
-      dropped: 0,
+      skipped: 0,
       taken: 0,
 
       ... options
@@ -171,12 +174,12 @@ export class Query<T extends Model> {
   /**
    * Filter a query using a where query.
    *
-   * @param map A function that will take the queried model attributes
-   *            and produce the where query to filter
+   * @param map A function that will take the queryable model properties
+   *            and produce the where query to filter the query with.
    * @returns   The filtered query.
    */
-  public where(map: (attrs: ModelAttributes<T>) => Where): Query<T> {
-    let options = { ... this.options, wheres: this.options.wheres.concat(map(getAttributes(this.model))) };
+  public where(map: (queryables: ModelQueryables<T>) => Where): Query<T> {
+    let options = { ... this.options, wheres: this.options.wheres.concat(map(getQueryables(this.model))) };
 
     return new Query<T>(this.db, this.model, options);
   }
@@ -184,13 +187,13 @@ export class Query<T extends Model> {
   /**
    * Select the attributes to be included in a query result.
    *
-   * @params map A function that will take the queried model attributes
-   *             and produce an array of attributes to be included.
+   * @param map A function that will take the queryable model properties
+   *            and produce an array of attributes to be included in the result.
    * @returns The new query with the selected attributes only.
    */
-  public attributes(map: (attrs: ModelAttributes<T>) => Attribute<any>[]): Query<T> {
+  public attributes(map: (queryable: ModelQueryables<T>) => Queryable<any>[]): Query<T> {
     let attrs = this.options.attrs || [];
-    let options = { ... this.options, attrs: attrs.concat(map(getAttributes(this.model))) };
+    let options = { ... this.options, attrs: attrs.concat(map(getQueryables(this.model))) };
 
     return new Query<T>(this.db, this.model, options);
   }
@@ -200,7 +203,7 @@ export class Query<T extends Model> {
    * An optional function can be provided to change the query on the association
    * model in order to do things like where queries on association query.
    *
-   * @param map A function that will take the queried model attributes
+   * @param map A function that will take the queryable model properties
    *            and produce the attribute the association is under.
    * @param query A function that will take the default query on the association model
    *              and return a custom one, i.e. allows for adding where queries
@@ -208,10 +211,10 @@ export class Query<T extends Model> {
    * @returns The eagerly-loaded query.
    */
   public include<U extends Model>(model: ModelConstructor<U>,
-                                  attr: (attrs: ModelAttributes<T>) => Attribute<any> | [Attribute<any>, IncludeOptions],
+                                  map: (queryables: ModelQueryables<T>) => Queryable<any> | [Queryable<any>, IncludeOptions],
                                   query?: (query: Query<U>) => Query<U>): Query<T> {
     let includes = this.options.includes || [];
-    let attrResult = attr(getAttributes(this.model));
+    let attrResult = map(getQueryables(this.model));
     let assocKey;
     let extraOptions = {};
     let includeOptions = {
@@ -219,12 +222,12 @@ export class Query<T extends Model> {
     };
 
     if (Array.isArray(attrResult)) {
-      let [assocAttr, assocIncludeOptions] = attrResult as [Attribute<any>, IncludeOptions];
+      let [assocAttr, assocIncludeOptions] = attrResult as [Queryable<any>, IncludeOptions];
 
       assocKey = assocAttr.compileLeft();
       extraOptions = assocIncludeOptions;
     } else {
-      assocKey = (attrResult as Attribute<any>).compileLeft();
+      assocKey = (attrResult as Queryable<any>).compileLeft();
     }
 
     let assocOptions = getAssociationOptions(this.model, assocKey);
@@ -274,7 +277,7 @@ export class Query<T extends Model> {
         target = (target as () => ModelConstructor<any>)();
       }
 
-      query = query.include(target as ModelConstructor<any>, _ => new AssocAttribute(key));
+      query = query.include(target as ModelConstructor<any>, _ => new AssociationQueryable(key));
     }
 
     return query;
@@ -283,24 +286,24 @@ export class Query<T extends Model> {
   /**
    * Order the future results of a query.
    *
-   * @params map A function that will take the queried model attributes
-   *             and produce an array of attribute orders for the result to be ordered by.
+   * @param map A function that will take the queryable model properties
+   *            and produce an array of attribute orders for the result to be ordered by.
    * @returns    The ordered query.
    */
-  public order(map: (attrs: ModelAttributes<T>) => AttributeOrder<any>[]): Query<T> {
+  public order(map: (queryables: ModelQueryables<T>) => QueryableOrder<any>[]): Query<T> {
     let orderings = this.options.orderings || [];
-    let options = { ... this.options, orderings: orderings.concat(map(getAttributes(this.model))) };
+    let options = { ... this.options, orderings: orderings.concat(map(getQueryables(this.model))) };
 
     return new Query<T>(this.db, this.model, options);
   }
 
   /**
-   * Drop a number of future results from the query.
+   * Skip a number of future results from the query.
    * This essentially increases the OFFSET amount,
    * and will only affect the find and findOne queries.
    */
-  public drop(num: number): Query<T> {
-    let options = { ... this.options, dropped: this.options.dropped + num };
+  public skip(num: number): Query<T> {
+    let options = { ... this.options, skipped: this.options.skipped + num };
 
     return new Query<T>(this.db, this.model, options);
   }
@@ -323,7 +326,14 @@ export class Query<T extends Model> {
    * @returns A promise that resolves to a list of found instances if successful.
    */
   public async find(options?: FindOptions): Promise<T[]> {
-    return Promise.resolve(this.internalModel.findAll({ ... options, ... this.compileFindOptions() }));
+    let model = this.model;
+    let data = await Promise.resolve(this.internalModel.findAll({ ... options, ... this.compileFindOptions() }));
+
+    // Deserialize all returned Sequelize models
+    return Promise.all(data.map(async (item: T) => {
+      // FIXME: The any cast is required here to turn the plain T into a Sequelize instance T
+      return await model.deserialize((item as any as Instance<T>).toJSON(), { validate: false }) as T;
+    }));
   }
 
   /**
@@ -333,7 +343,10 @@ export class Query<T extends Model> {
    * @returns A promise that resolves to the found instance if successful.
    */
   public async findOne(options?: FindOptions): Promise<T> {
-    return Promise.resolve(this.internalModel.findOne({ ... options, ... this.compileFindOptions() }));
+    let data = await Promise.resolve(this.internalModel.findOne({ ... options, ... this.compileFindOptions() }));
+
+    // FIXME: The any cast is required here to turn the plain T into a Sequelize instance T
+    return await this.model.deserialize((data as any as Instance<T>).toJSON(), { validate: false }) as T;
   }
 
   /**
@@ -344,16 +357,30 @@ export class Query<T extends Model> {
    * @returns A promise that resolves to the found instance if successful.
    */
   public async findById(id: any, options?: FindOptions): Promise<T> {
-    return Promise.resolve(this.internalModel.findById(id, options));
+    let data = await Promise.resolve(this.internalModel.findById(id, options));
+
+    // FIXME: The any cast is required here to turn the plain T into a Sequelize instance T
+    return await this.model.deserialize((data as any as Instance<T>).toJSON(), { validate: false }) as T;
   }
 
   /**
    * Truncate the model table in the database.
    *
+   * @param options Any extra truncate options to truncate with.
    * @returns A promise that resolves when the model table has been truncated.
    */
-  public async truncate(): Promise<void> {
-    return Promise.resolve(this.internalModel.truncate());
+  public async truncate(options?: TruncateOptions): Promise<void> {
+    return Promise.resolve(this.internalModel.truncate(options));
+  }
+
+  /**
+   * Drop the model table in the database.
+   *
+   * @param options Any extra drop options to drop with.
+   * @returns A promise that resolves when the model table has been dropped.
+   */
+  public async drop(options?: DropOptions): Promise<void> {
+    return Promise.resolve(this.internalModel.drop(options));
   }
 
   /**
@@ -407,16 +434,16 @@ export class Query<T extends Model> {
 
   /**
    * Aggregate the model instances in the database using a specific
-   * aggregation function and model attribute.
+   * aggregation function and model queryable.
    *
    * @param fn The aggregate function to use.
-   * @param map A lambda function that will take the queried model attributes
+   * @param map A lambda function that will take the queryable model properties
    *            and produce the attribute to aggregate by.
    * @returns A promise that resolves with the aggregation value if successful.
    */
-  public async aggregate(fn: string, map: (attrs: ModelAttributes<T>) => Attribute<any>,
+  public async aggregate(fn: string, map: (attrs: ModelQueryables<T>) => Queryable<any>,
                          options?: AggregateOptions): Promise<any> {
-    return Promise.resolve(this.internalModel.aggregate(map(getAttributes(this.model)).compileLeft(), fn, {
+    return Promise.resolve(this.internalModel.aggregate(map(getQueryables(this.model)).compileLeft(), fn, {
       ... options,
 
       where: this.compileWheres(),
@@ -428,11 +455,11 @@ export class Query<T extends Model> {
    * Aggregate the model instances in the database using the min
    * aggregation function and model attribute.
    *
-   * @param map A lambda function that will take the queried model attributes
+   * @param map A lambda function that will take the queryable model properties
    *            and produce the attribute to aggregate by.
    * @returns A promise that resolves with the aggregation value if successful.
    */
-  public async min(map: (attrs: ModelAttributes<T>) => Attribute<any>,
+  public async min(map: (attrs: ModelQueryables<T>) => Queryable<any>,
                    options?: AggregateOptions): Promise<any> {
     return Promise.resolve(this.aggregate('min', map, options));
   }
@@ -441,11 +468,11 @@ export class Query<T extends Model> {
    * Aggregate the model instances in the database using the max
    * aggregation function and model attribute.
    *
-   * @param map A lambda function that will take the queried model attributes
+   * @param map A lambda function that will take the queryable model properties
    *            and produce the attribute to aggregate by.
    * @returns A promise that resolves with the aggregation value if successful.
    */
-  public async max(map: (attrs: ModelAttributes<T>) => Attribute<any>,
+  public async max(map: (attrs: ModelQueryables<T>) => Queryable<any>,
                    options?: AggregateOptions): Promise<any> {
     return Promise.resolve(this.aggregate('max', map, options));
   }
@@ -454,11 +481,11 @@ export class Query<T extends Model> {
    * Aggregate the model instances in the database using the sum
    * aggregation function and model attribute.
    *
-   * @param map A lambda function that will take the queried model attributes
+   * @param map A lambda function that will take the queryable model properties
    *            and produce the attribute to aggregate by.
    * @returns A promise that resolves with the aggregation value if successful.
    */
-  public async sum(map: (attrs: ModelAttributes<T>) => Attribute<any>,
+  public async sum(map: (attrs: ModelQueryables<T>) => Queryable<any>,
                    options?: AggregateOptions): Promise<any> {
     return Promise.resolve(this.aggregate('sum', map, options));
   }
@@ -478,9 +505,8 @@ export class Query<T extends Model> {
    *          a bool that is true when an instance was created.
    */
   public async findOrCreate(defaults?: Partial<T>, options?: FindOrInitializeOptions<T>): Promise<[T, boolean]> {
-    let self = this;
-
-    return Promise.resolve(
+    let model = this.model;
+    let [data, created] = await Promise.resolve(
       this.internalModel
         .findOrCreate({
           ... options,
@@ -489,149 +515,138 @@ export class Query<T extends Model> {
           where: this.compileWheres(),
         })
         .catch(SequelizeValidationError, async (err: SequelizeValidationError) => {
-          return Promise.reject(coerceValidationError(self.model, err));
+          return Promise.reject(coerceValidationError(model, err));
         })
     );
+
+    // Turn the Sequelize data into a ModelSafe model class
+    return [
+      // FIXME: The any cast is required here to turn the plain T into a Sequelize instance T
+      await model.deserialize((data as any as Instance<T>).toJSON(), { validate: false }) as T,
+      created
+    ];
   }
 
   /**
-   * Returns a plain object version of the instance with attributes only.
+   * Prepare an instance to be stored in the database.
+   * This serialises the ModelSafe instance to a plain JS
+   * structure and then also adds on any foreign keys, if found.
    *
-   * @param instance The model instance to strip.
-   * @returns The stripped model instance.
+   * @param instance The instance to prepare to be stored.
+   * @returns A promise that resolves with the instance in JS object form.
    */
-  private prepareAttributes(instance: T, assocValues: {}): T {
-    // find any associations included that can be set early
-    let early = this.getEarlyAssociations();
-
-    let values = _.pick(instance, [
-      ... Object.keys(getModelAttributes(this.model))
-    ]);
-
-    // add any belongsTo FKs that we know about.
-    Object.keys(early).forEach(as => {
-      let assoc = early[as];
-      let target = assocValues[as];
-
-      // if we never retrieved the target,
-      // don't try and set it otherwise we might
-      // break the association unintentionally.
-      if (target === undefined) {
-        return;
-      }
-
-      // set the association's attribute to the target's identifier
-      values[assoc.identifier] = target.get ?
-        target.get(assoc.targetIdentifier) :
-        target[assoc.targetIdentifier];
-    });
-
-    return values as T;
-  }
-
-  /**
-   * Returns a plain object version of the instance with associations only.
-   *
-   * @param instance The model instance to strip.
-   * @returns The stripped model instance.
-   */
-  private prepareAssociations(instance: T): T {
-    return _.pick(instance, Object.keys(getModelAssociations(this.model))) as T;
-  }
-
-/**
- * Returns the associations that correlate to the current include options
- * @return {Map<Association>} An array of association descriptors.
- */
-  private getIncludedAssociations(): Map<Association> {
-    return _.pick(this.internalModel.associations,
-      (this.options.includes || []).map(include => include.as)) as Map<Association>;
-  }
-
-  /**
-   * Returns any early associations (associations that can be set via attributes).
-   * @param {Map<BelongsToAssociation>} associations? Optionally filter these associations. If null,
-   *                                                  the current include options will be used.
-   * @return {Map<BelongsToAssociation>} A map of associations that can be bound early.
-   */
-  private getEarlyAssociations(associations?: Map<Association>): Map<BelongsToAssociation> {
-    return _.pickBy((associations || this.getIncludedAssociations()),
-      (assoc: Association) => assoc.associationType === 'BelongsTo') as Map<BelongsToAssociation>;
-  }
-
-  /**
-   * A helper function that inspects any association
-   * values on a model instance and updates them if
-   * required.
-   *
-   * @param model The model instance to associate.
-   * @param assocValues The associations of the instance, as a plain object.
-   * @returns A promise that associates the instance and returns a reloaded instance afterwards.
-   */
-  private async associate(instance: T, assocValues: {}, transaction?: Transaction): Promise<T> {
-    let values = instance as {};
+  protected async prepare(instance: T): Promise<object> {
     let includes = this.options.includes || [];
-    // find any associations included that can be set early
-    let associations = this.getIncludedAssociations();
-    let early = this.getEarlyAssociations(associations);
+    let data = await this.model.serialize(instance);
+
+    // No point doing anything extra if no includes were set.
+    if (includes.length < 1) {
+      return data;
+    }
+
+    // Add all foreign keys to the data, if it's an early association (belongs-to).
+    for (let include of includes) {
+      let internalAssoc = this.internalModel.associations[include.as];
+
+      if (internalAssoc.associationType === 'BelongsTo') {
+        let identifier = (internalAssoc as BelongsToAssociation).targetIdentifier;
+
+        data[identifier] = instance[identifier];
+      }
+    }
+
+    return data;
+  }
+
+  /**
+   * Saves any associations that have been included
+   * onto a Sequelize internal model instance, and then
+   * reloads that internal modal data.
+   *
+   * @param internalInstance The internal Sequelize model instance.
+   * @param data The data that the model originally had in its ModelSafe instance form
+   *             This is used to get the original values of the model instance.
+   * @param transaction An optional transaction to use with associate calls.
+   * @returns A promise that resolves with an associated & reloaded instance, or rejects
+   *          if there was an error.
+   */
+  protected async associate(internalInstance: Instance<T>, data: Partial<T>, transaction?: Transaction): Promise<Instance<T>> {
+    let assocs = getModelAssociations(this.model);
+    let includes = this.options.includes || [];
 
     // No point doing any operations/reloading if
     // no includes were set.
     if (includes.length < 1) {
-      return instance;
+      return internalInstance;
     }
 
     for (let include of includes) {
       let key = include.as;
+      let value = (data as object)[key];
+      let internalAssoc = this.internalModel.associations[key];
+      let assoc = assocs[key];
+      let assocTarget = assoc.target;
 
-      // early associations have already been set via attributes, so we can skip this include.
-      if (early[key]) {
+      if (isLazyLoad(assocTarget)) {
+        assocTarget = (assocTarget as () => ModelConstructor<any>)();
+      }
+
+      // We need the internal and ModelSafe association in order to see how to save the value.
+      // We also ignore undefined values since that means they haven't been
+      // loaded/shouldn't be touched.
+      if (!assocTarget || !internalAssoc || typeof (value) === 'undefined') {
         continue;
       }
 
-      let target = assocValues[key];
+      let assocQuery = new Query(this.db, assocTarget as ModelConstructor<any>);
+
+      // Don't attempt to do anything else if the association's
+      // foreign value was set - it would have already been associated
+      // during the update or create call.
+      if (internalAssoc.associationType === 'BelongsTo' &&
+          internalInstance.get((internalAssoc as BelongsToAssociation).targetIdentifier)) {
+        continue;
+      }
 
       // This is the same across all associations.
-      let method = values['set' + Utils.uppercaseFirst(key)];
+      let method = internalInstance['set' + Utils.uppercaseFirst(key)];
 
       if (typeof (method) !== 'function') {
         continue;
       }
 
-      method = method.bind(instance);
+      method = method.bind(internalInstance);
 
-      if (!target) {
-        // FIXME this needs to use the real attr name + 'Id', not the 'as' name
-        await method(values[key + 'Id'], { transaction });
+      if (_.isNil(value)) {
+        // The value is null like (but not undefined, as that was ignored earlier).
+        // Clear any existing association value and continue.
+        await Promise.resolve(method(null, { transaction }));
 
         continue;
       }
 
-      // FIXME: Any is required here..
-      let coerce = (target: any) => {
-        if (isSequelizeInstance(target)) {
-          return target;
-        }
-
-        // Just a plain instance without the Sequelize sugar.
-        // We need to build it into a Sequelize model
-        // in order for setting the association to work.
-        return include.model.build(_.toPlainObject(target));
-      };
-
-      if (Array.isArray(target)) {
-        target = target.map(t => coerce(t));
+      // Save the association value to ensure if it is created if not already existing,
+      // or updates any fields that have been changed (the set association method
+      // unfortunately does not do this for us)
+      if (_.isArray(value)) {
+        value = await Promise.all(_.map(value, async (item) => assocQuery.save(item, { transaction })));
       } else {
-        target = coerce(target);
+        value = await assocQuery.save(value, { transaction });
+      }
+
+      // Save the value, or save all of the values if it is an array
+      // also turns a ModelSafe model instance into a Sequelize instance, if it's not already
+      if (_.isArray(value)) {
+        value = await Promise.all(_.map(value, async (item: any) => coerceInstance(this.internalModel, item)));
+      } else {
+        value = await coerceInstance(this.internalModel, value);
       }
 
       // TODO: Only change associations if they've changed.
-      await method(target, { transaction });
+      await Promise.resolve(method(value, { transaction }));
     }
 
-    // We have to reload the instance here to get any changed data.
-    // FIXME: `reload` is provided by Sequelize but isn't wrapped in Squell yet so we cast any.
-    return Promise.resolve((instance as any).reload({ include: this.compileIncludes(), transaction }));
+    return await Promise.resolve(internalInstance.reload({ transaction })) as Instance<any>;
   }
 
   /**
@@ -643,21 +658,37 @@ export class Query<T extends Model> {
    * that ID is added and then update is called.
    * If no primary key was set, the model instance is created then returned.
    *
+   * By default ModelSafe validations will be run.
+   *
    * @param instance The model instance.
    * @param options The create or update options. The relevant will be used depending
    *                on the value of the primary key.
    * @returns A promise that resolves with the saved instance if successful.
    */
   public async save(instance: T, options?: CreateOptions | UpdateOptions): Promise<T> {
+    options = {
+      validate: true,
+
+      ... options
+    };
+
     let primary = this.db.getInternalModelPrimary(this.model);
     let primaryValue = instance[primary.compileLeft()];
 
     // If the primary key is set, update.
     // Otherwise create.
     if (primaryValue) {
+      if (options.validate) {
+        // We validate here. The update call only validates non-required validations,
+        // whereas we want to do required validations too since we know that the instance
+        // should be a full valid instance (whereas what is passed into update may be a partial,
+        // hence why not every field should be required)
+        await instance.validate();
+      }
+
       let [num, instances] = await this
         .where(_m => primary.eq(primaryValue))
-        .update(instance, options as UpdateOptions);
+        .update(await instance.serialize(), options as UpdateOptions);
 
       // Handle this just in case.
       // Kind of unexpected behaviour, so we just return null.
@@ -667,6 +698,7 @@ export class Query<T extends Model> {
 
       return instances[0];
     } else {
+      // Create will perform validations for us as well
       return this.create(instance, options as CreateOptions);
     }
   }
@@ -674,8 +706,8 @@ export class Query<T extends Model> {
   /**
    * Creates a model instance in the database.
    *
-   * By default validations will be run.
-   * Associations will be updated if they have been included before hand.
+   * By default ModelSafe validations will be run and
+   * associations will be updated if they have been included before hand.
    *
    * @rejects ValidationError
    * @param instance The model instance to create.
@@ -683,18 +715,35 @@ export class Query<T extends Model> {
    * @returns A promise that resolves with the created instance if successful.
    */
   public async create(instance: T, options?: CreateOptions): Promise<T> {
-    let self = this;
-    let assocValues = this.prepareAssociations(instance);
+    options = {
+      associate: true,
+      validate: true,
 
-    instance = await Promise.resolve(
+      ... options
+    };
+
+    // Validate the instance if required
+    if (options.validate) {
+      await instance.validate();
+    }
+
+    let model = this.model;
+    let values = await this.prepare(instance);
+    let data = await Promise.resolve(
       this.internalModel
-        .create(this.prepareAttributes(instance, assocValues), options)
+        .create(values as T, options)
         .catch(SequelizeValidationError, async (err: SequelizeValidationError) => {
-          return Promise.reject(coerceValidationError(self.model, err));
+          return Promise.reject(coerceValidationError(model, err));
         })
     );
 
-    return this.associate(instance, assocValues, options ? options.transaction : null);
+    if (options.associate) {
+      // Save associations of the Sequelize data and reload
+      data = await this.associate((data as any as Instance<T>), values, options ? options.transaction : null) as any as T;
+    }
+
+    // Turn the Sequelize data into a ModelSafe class instance
+    return await model.deserialize((data as any as Instance<T>).toJSON(), { validate: false }) as T;
   }
 
   /**
@@ -704,8 +753,9 @@ export class Query<T extends Model> {
    * If you want those values, you should re-query the database
    * once the bulk create has succeeded.
    *
-   * By default validations will not be run.
-   * This *will not* update any associations.
+   * By default ModelSafe validations will be run.
+   * This *will not* update any associations, unless those associations
+   * are set by a foreign key (ie. belongs-to).
    *
    * @rejects ValidationError
    * @param instances The array of model instances to create.
@@ -713,65 +763,104 @@ export class Query<T extends Model> {
    * @returns The array of instances created. See above.
    */
   public async bulkCreate(instances: T[], options?: BulkCreateOptions): Promise<T[]> {
-    let self = this;
+    options = {
+      validate: true,
 
-    return Promise.resolve(
+      ... options
+    };
+
+    let model = this.model;
+
+    // Validate all instances if required
+    if (options.validate) {
+      for (let instance of instances) {
+        await instance.validate();
+      }
+    }
+
+    let data = await Promise.resolve(
       this.internalModel
-        .bulkCreate(_.map(instances, m => self.prepareAttributes(m, {})), options)
+        .bulkCreate(
+          await Promise.all(_.map(instances, async (instance) => await this.prepare(instance))) as T[],
+          options
+        )
         .catch(SequelizeValidationError, async (err: SequelizeValidationError) => {
-          return Promise.reject(coerceValidationError(self.model, err));
+          return Promise.reject(coerceValidationError(model, err));
         })
     );
+
+    // Deserialize all returned Sequelize models
+    return Promise.all(data.map(async (item: T) => {
+      // FIXME: The any cast is required here to turn the plain T into a Sequelize instance T
+      return await model.deserialize((item as any as Instance<T>).toJSON(), { validate: false }) as T;
+    }));
   }
 
   /**
-   * Update an instance in the database using the query.
-   * The model provided will be used as a mapped partial version, which
-   * means that all of the model properties are optional - and
-   * if there's not defined, they won't be updated.
+   * Update one or more instances in the database with the partial
+   * property values provided.
    *
-   * By default validations will be run.
-   * Associations will be updated if they have been included before hand.
-   * This can also update multiple instances.
+   * By default ModelSafe validations will be run and
+   * associations will be updated if they have been included before hand.
    *
    * @rejects ValidationError
-   * @param instance The model partial to update using.
+   * @param values The instance data to update with.
    * @param options Any extra Sequelize update options required.
    * @return A promise that resolves to a tuple with the number of instances updated and
    *         an array of the instances updated, if successful.
    */
-  public async update(instance: Partial<T>, options?: UpdateOptions): Promise<[number, T[]]> {
-    let self = this;
-    let assocValues = this.prepareAssociations(instance as T);
-    let promise = Promise.resolve(
+  public async update(values: Partial<T>, options?: UpdateOptions): Promise<[number, T[]]> {
+    options = {
+      associate: true,
+      validate: true,
+
+      ... options
+    };
+
+    let model = this.model;
+
+    // Validate the values partial if required
+    if (options.validate) {
+      // Ignore required validation since values is a partial
+      await (await model.deserialize(values, { validate: false })).validate({ required: false });
+    }
+
+    let [num, data] = await Promise.resolve(
       this.internalModel
-        .update(this.prepareAttributes(instance as T, assocValues), {
+        .update(values as T, {
           ... options,
 
           where: this.compileWheres(),
           limit: this.options.taken > 0 ? this.options.taken : undefined,
         })
         .catch(SequelizeValidationError, async (err: SequelizeValidationError) => {
-          return Promise.reject(coerceValidationError(self.model, err));
+          return Promise.reject(coerceValidationError(model, err));
         })
     );
 
-    let reloaded = [];
-    let [num, instances] = await promise;
-
-    // FIXME: The instance return value is only supported in Postgres,
+    // FIXME: The update return value is only supported in Postgres,
     // so we findAll here to emulate this on other databases.
     // Could be detrimental to performance.
-    instances = await Promise.resolve(this.internalModel.findAll({
+    data = await Promise.resolve(this.internalModel.findAll({
       where: this.compileWheres(),
       limit: this.options.taken > 0 ? this.options.taken : undefined,
     }));
 
-    for (let instance of instances) {
-      reloaded.push(await this.associate(instance, assocValues, options ? options.transaction : null));
+    if (options.associate) {
+      // Save associations of each Sequelize data and reload all
+      data = await Promise.all(data.map(async (item: T) => {
+        return await this.associate((item as any as Instance<T>), values, options ? options.transaction : null) as any as T;
+      }));
     }
 
-    return [num, reloaded];
+    // Deserialize all returned Sequelize models
+    return [
+      num,
+      await Promise.all(data.map(async (item: T): Promise<T> => {
+        // FIXME: The any cast is required here to turn the plain T into a Sequelize instance T
+        return await model.deserialize((item as any as Instance<T>).toJSON(), { validate: false }) as T;
+      }))
+    ];
   }
 
   /**
@@ -782,24 +871,37 @@ export class Query<T extends Model> {
    * attributes are optional and non-defined ones will be excluded from
    * the query/insertion.
    *
-   * This *will not* update any associations.
+   * ModelSafe validations will run by default,
+   * but this *will not* update any associations.
    *
-   * @param instance The model partial to upsert using.
+   * @param values The property values to upsert using.
    * @param options Any extra Sequelize upsert options required.
    * @returns A promise that will upsert and contain true if an instance was inserted.
    */
-  public async upsert(instance: Partial<T>, options?: UpsertOptions): Promise<boolean> {
-    let self = this;
+  public async upsert(values: Partial<T>, options?: UpsertOptions): Promise<boolean> {
+    options = {
+      validate: true,
+
+      ... options
+    };
+
+    let model = this.model;
+
+    // Validate the values partial if required
+    if (options.validate) {
+      // Ignore required validation since values is a partial
+      await (await model.deserialize(values, { validate: false })).validate({ required: false });
+    }
 
     return Promise.resolve(
       this.internalModel
-        .upsert(instance as T, {
+        .upsert(values as T, {
           ... options,
 
           includes: this.compileIncludes()
         })
         .catch(SequelizeValidationError, async (err: SequelizeValidationError) => {
-          return Promise.reject(coerceValidationError(self.model, err));
+          return Promise.reject(coerceValidationError(model, err));
         })
     );
   }
@@ -826,8 +928,8 @@ export class Query<T extends Model> {
       options.order = this.compileOrderings();
     }
 
-    if (this.options.dropped > 0) {
-      options.offset = this.options.dropped;
+    if (this.options.skipped > 0) {
+      options.offset = this.options.skipped;
     }
 
     if (this.options.taken > 0) {
@@ -861,28 +963,7 @@ export class Query<T extends Model> {
    * @returns The Sequelize representation.
    */
   public compileOrderings(): any {
-    return this.options.orderings.map(o => {
-      const order = o[1].toString();
-      // If this isn't a plain attribute then pass it on as is
-      if (!(o[0] instanceof PlainAttribute)) return [o[0].compileRight(), order];
-
-      // Otherwise split the attribute into keys and build a model path to it
-      const keys = o[0].compileLeft().split('.');
-      let parentModel = this.model;
-
-      const path = _.map(keys, (key: string, i: number) => {
-        if (i === keys.length - 1) return key;
-
-        const model = getModelAssociations(parentModel)[key].target;
-
-        // tslint:disable-next-line:ban-types
-        parentModel = (isLazyLoad(model) ? (model as Function)() : model);
-
-        return { model: this.db.getInternalModel(parentModel), as: key };
-      });
-
-      return path.concat([order]);
-    });
+    return this.options.orderings.map(([attr, order]) => [attr.compileRight(), order.toString()]);
   }
 
   /**
