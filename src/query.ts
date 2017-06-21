@@ -103,12 +103,16 @@ function coerceValidationError<T extends Model>(
  * Coerces a ModelSafe model instance to a Sequelize model instance.
  *
  * @param internalModel The Sequelize model.
- * @param instance The ModelSafe model instance.
+ * @param data The ModelSafe model instance or a partial object of values.
  * @returns The Sequelize model instance coerced.
  */
 export async function coerceInstance<T extends Model>(internalModel: SequelizeModel<T, T>,
-                                                      instance: T): Promise<Instance<T>> {
-  return internalModel.build(await instance.serialize() as T, { isNewRecord: false }) as any as Instance<T>;
+                                                      data: T | Partial<T>): Promise<Instance<T>> {
+  if (!_.isPlainObject(data)) {
+    data = await data.serialize();
+  }
+
+  return internalModel.build(data as T, { isNewRecord: false }) as any as Instance<T>;
 }
 
 /**
@@ -530,14 +534,18 @@ export class Query<T extends Model> {
   /**
    * Prepare an instance to be stored in the database.
    * This serialises the ModelSafe instance to a plain JS
-   * structure and then also adds on any foreign keys, if found.
+   * object and then also adds on any foreign keys, if found.
+   *
+   * If the `associations` parameter is set to `true`, then this
+   * also serializes associations to JS.
    *
    * @param instance The instance to prepare to be stored.
-   * @returns A promise that resolves with the instance in JS object form.
+   * @param associations Whether to add associations to the object result too.
+   * @returns A promise that resolves with the instance in plain object form.
    */
-  protected async prepare(instance: T): Promise<object> {
+  protected async prepare(instance: T, associations: boolean = false): Promise<object> {
     let includes = this.options.includes || [];
-    let data = await this.model.serialize(instance);
+    let data = await this.model.serialize(instance, { associations });
 
     // No point doing anything extra if no includes were set.
     if (includes.length < 1) {
@@ -546,12 +554,33 @@ export class Query<T extends Model> {
 
     // Add all foreign keys to the data, if it's an early association (belongs-to).
     for (let include of includes) {
-      let internalAssoc = this.internalModel.associations[include.as];
+      let key = include.as;
+      let internalAssoc = this.internalModel.associations[key];
+      let value = instance[key];
 
+      if (_.isNil(value)) {
+        continue;
+      }
+
+      // Add any foreign keys that are set outside of association values
       if (internalAssoc.associationType === 'BelongsTo') {
-        let identifier = (internalAssoc as BelongsToAssociation).targetIdentifier;
+        let identifier = (internalAssoc as BelongsToAssociation).identifier;
+        let targetIdentifier = (internalAssoc as BelongsToAssociation).targetIdentifier;
+        let id;
 
-        data[identifier] = instance[identifier];
+        // If they've provided an association value, then pull the id off that.
+        if (value) {
+          id = value[targetIdentifier];
+        }
+
+        // If there's still no ID, try getting it of a foreign key value
+        if (!id) {
+          id = instance[identifier];
+        }
+
+        if (id) {
+          data[identifier] = id;
+        }
       }
     }
 
@@ -565,7 +594,7 @@ export class Query<T extends Model> {
    *
    * @param internalInstance The internal Sequelize model instance.
    * @param data The data that the model originally had in its ModelSafe instance form
-   *             This is used to get the original values of the model instance.
+   *             This is used to get the original values of the model instance and its associations.
    * @param transaction An optional transaction to use with associate calls.
    * @returns A promise that resolves with an associated & reloaded instance, or rejects
    *          if there was an error.
@@ -594,17 +623,18 @@ export class Query<T extends Model> {
       // We need the internal and ModelSafe association in order to see how to save the value.
       // We also ignore undefined values since that means they haven't been
       // loaded/shouldn't be touched.
-      if (!assocTarget || !internalAssoc || typeof (value) === 'undefined') {
+      if (!internalAssoc || !assocTarget || typeof (value) === 'undefined') {
         continue;
       }
 
-      let assocQuery = new Query(this.db, assocTarget as ModelConstructor<any>);
+      let internalAssocModel = this.db.getInternalModel(assocTarget as ModelConstructor<any>);
+      let internalAssocPrimary = this.db.getInternalModelPrimary(assocTarget as ModelConstructor<any>).compileLeft();
 
       // Don't attempt to do anything else if the association's
       // foreign value was set - it would have already been associated
       // during the update or create call.
       if (internalAssoc.associationType === 'BelongsTo' &&
-          internalInstance.get((internalAssoc as BelongsToAssociation).targetIdentifier)) {
+          internalInstance.get((internalAssoc as BelongsToAssociation).identifier)) {
         continue;
       }
 
@@ -625,28 +655,40 @@ export class Query<T extends Model> {
         continue;
       }
 
-      // Save the association value to ensure if it is created if not already existing,
-      // or updates any fields that have been changed (the set association method
-      // unfortunately does not do this for us)
+      let coerced: Instance<any> | Instance<any>[];
+
+      // The value is either a serialized JS plain object, or an array of them.
+      // Build them into Sequelize instances then save the association if required.
+      let coerceSave = async (values: object): Promise<Instance<any>> => {
+        let coerced = await coerceInstance(internalAssocModel, values);
+        let keys = Object.keys(values);
+
+        // If we have any keys other than the association's primary key,
+        // then save the instance. The logic being that if it's
+        // just an ID then the user is only trying to update the association
+        // and doesn't care if the association instance is updated.
+        if (keys.filter(key => key !== internalAssocPrimary).length > 0) {
+          return coerced.save({ transaction });
+        }
+
+        return coerced;
+      };
+
       if (_.isArray(value)) {
-        value = await Promise.all(_.map(value, async (item) => assocQuery.save(item, { transaction })));
+        coerced = await Promise.all(_.map(value, async (item: object) => coerceSave(item)));
       } else {
-        value = await assocQuery.save(value, { transaction });
+        coerced = await coerceSave(value);
       }
 
-      // Save the value, or save all of the values if it is an array
-      // also turns a ModelSafe model instance into a Sequelize instance, if it's not already
-      if (_.isArray(value)) {
-        value = await Promise.all(_.map(value, async (item: any) => coerceInstance(this.internalModel, item)));
-      } else {
-        value = await coerceInstance(this.internalModel, value);
-      }
-
-      // TODO: Only change associations if they've changed.
-      await Promise.resolve(method(value, { transaction }));
+      // Now set the association
+      // TODO: Only set associations if they've changed.
+      await Promise.resolve(method(coerced, { transaction }));
     }
 
-    return await Promise.resolve(internalInstance.reload({ transaction })) as Instance<any>;
+    return await Promise.resolve(internalInstance.reload({
+      include: this.compileIncludes(),
+      transaction
+    })) as Instance<any>;
   }
 
   /**
@@ -671,6 +713,12 @@ export class Query<T extends Model> {
 
       ... options
     };
+
+    // If the value is provided looks like a T instance but isn't actually,
+    // coerce it.
+    if (_.isPlainObject(instance)) {
+      instance = await this.model.deserialize(instance, { validate: false }) as T;
+    }
 
     let primary = this.db.getInternalModelPrimary(this.model);
     let primaryValue = instance[primary.compileLeft()];
@@ -722,13 +770,19 @@ export class Query<T extends Model> {
       ... options
     };
 
+    // If the value is provided looks like a T instance but isn't actually,
+    // coerce it.
+    if (_.isPlainObject(instance)) {
+      instance = await this.model.deserialize(instance, { validate: false }) as T;
+    }
+
     // Validate the instance if required
     if (options.validate) {
       await instance.validate();
     }
 
     let model = this.model;
-    let values = await this.prepare(instance);
+    let values = await this.prepare(instance, true);
     let data = await Promise.resolve(
       this.internalModel
         .create(values as T, options)
@@ -771,6 +825,16 @@ export class Query<T extends Model> {
 
     let model = this.model;
 
+    // If any is provided looks like a T instance but isn't actually,
+    // coerce it.
+    instances = await Promise.all(instances.map(async (instance: T) => {
+      if (_.isPlainObject(instance)) {
+        return await model.deserialize(instance, { validate: false }) as T;
+      }
+
+      return instance;
+    }));
+
     // Validate all instances if required
     if (options.validate) {
       for (let instance of instances) {
@@ -800,7 +864,7 @@ export class Query<T extends Model> {
    * Update one or more instances in the database with the partial
    * property values provided.
    *
-   * By default ModelSafe validations will be run and
+   * By default ModelSafe validations will be run (on the properties provided, only) and
    * associations will be updated if they have been included before hand.
    *
    * @rejects ValidationError
@@ -822,7 +886,10 @@ export class Query<T extends Model> {
     // Validate the values partial if required
     if (options.validate) {
       // Ignore required validation since values is a partial
-      await (await model.deserialize(values, { validate: false })).validate({ required: false });
+      await (await model.deserialize(values, {
+        validate: false,
+        associations: false
+      })).validate({ required: false });
     }
 
     let [num, data] = await Promise.resolve(
@@ -890,7 +957,10 @@ export class Query<T extends Model> {
     // Validate the values partial if required
     if (options.validate) {
       // Ignore required validation since values is a partial
-      await (await model.deserialize(values, { validate: false })).validate({ required: false });
+      await (await model.deserialize(values, {
+        validate: false,
+        associations: false
+      })).validate({ required: false });
     }
 
     return Promise.resolve(
@@ -963,7 +1033,7 @@ export class Query<T extends Model> {
    * @returns The Sequelize representation.
    */
   public compileOrderings(): any {
-    return this.options.orderings.map(([attr, order]) => [attr.compileRight(), order.toString()]);
+    return this.options.orderings.map(([attr, order]) => [attr.compileLeft(), order.toString()]);
   }
 
   /**
