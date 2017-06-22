@@ -1,9 +1,9 @@
 /* tslint:disable:ban-types */
 import 'reflect-metadata';
-import { Model } from 'modelsafe';
+import { Model, ModelConstructor } from 'modelsafe';
 import { DefineAttributeColumnOptions, DefineOptions, AssociationOptionsBelongsTo,
-         AssociationOptionsHasOne, AssociationOptionsHasMany,
-         AssociationOptionsBelongsToMany } from 'sequelize';
+         AssociationOptionsHasOne, AssociationOptionsHasMany, AssociationOptionsManyToMany,
+         Model as SequelizeModel, ThroughOptions, AssociationForeignKeyOptions } from 'sequelize';
 
 /** The meta key for a model's options on a model class. */
 export const MODEL_OPTIONS_META_KEY = 'squell:options';
@@ -13,6 +13,33 @@ export const MODEL_ATTR_OPTIONS_META_KEY = 'squell:attrOptions';
 
 /** The meta key for association options on a model class. */
 export const MODEL_ASSOC_OPTIONS_META_KEY = 'squell:assocOptions';
+
+/**
+ * Association options for a belongs to many. This is the same
+ * as the Sequelize options with the added ability to
+ * specify a ModelSafe model to use as the join/through.
+ *
+ * @see Sequelize
+ */
+export interface AssociationOptionsBelongsToMany extends AssociationOptionsManyToMany {
+  /**
+   * The target to use as a through/join table.
+   *
+   * If it's a ModelSafe model, then it must be defined on the Squell database.
+   * The other options are based off Sequelize's belongs to many options.
+   *
+   * @see Sequelize
+   */
+  through: ModelConstructor<any> | SequelizeModel<any, any> | string | ThroughOptions;
+
+  /**
+   * The name of the foreign key in the join table (representing the target model).
+   * This is the same as the Sequelize definition of this option.
+   *
+   * @see Sequelize
+   */
+  otherKey?: string | AssociationForeignKeyOptions;
+}
 
 /**
  * Define any extra Sequelize model options on a model constructor.

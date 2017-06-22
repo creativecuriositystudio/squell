@@ -1,6 +1,5 @@
 /** Contains the database connection class. */
 import 'reflect-metadata';
-import * as _ from 'lodash';
 import * as Sequelize from 'sequelize';
 import { Model, ModelConstructor, AttributeType, InternalAttributeType,
          ArrayAttributeTypeOptions, EnumAttributeTypeOptions, isLazyLoad,
@@ -10,12 +9,13 @@ import { DestroyOptions, DropOptions, Options as SequelizeOptions,
          Sequelize as Connection, SyncOptions, Transaction, Model as SequelizeModel,
          DefineAttributeColumnOptions, DefineAttributes,
          DataTypeAbstract, STRING, CHAR, TEXT, INTEGER, BIGINT,
-         DOUBLE, BOOLEAN, TIME, DATE, JSON,
-         BLOB, ENUM, ARRAY
+         DOUBLE, BOOLEAN, TIME, DATE, JSON, BLOB, ENUM, ARRAY,
+         AssociationOptionsBelongsToMany as SequelizeAssociationOptionsBelongsToMany
        } from 'sequelize';
 
 import { Queryable, attribute } from './queryable';
-import { getModelOptions as getSquellOptions, getAttributeOptions, getAssociationOptions } from './metadata';
+import { getModelOptions as getSquellOptions, getAttributeOptions,
+         getAssociationOptions, AssociationOptionsBelongsToMany } from './metadata';
 import { Query } from './query';
 
 /**
@@ -185,7 +185,6 @@ export class Database {
     for (let name of Object.keys(this.models)) {
       let model = this.models[name];
       let internalModel = this.internalModels[name];
-      let modelOptions = getModelOptions(model);
       let assocs = getAssociations(model);
 
       for (let key of Object.keys(assocs)) {
@@ -214,23 +213,54 @@ export class Database {
         let targetModel = this.internalModels[targetOptions.name];
         let mappedAssoc = {
           as: key,
-          through: _.camelCase(modelOptions.name + '-' + targetOptions.name),
 
           ... getAssociationOptions(model, key)
         };
 
-        // If this isn't a belongsToMany, delete the through option.
-        // Otherwise Sequelize will think we're trying to do a belongs
-        // to many.
-        if (type !== BELONGS_TO_MANY) {
-          delete mappedAssoc.through;
+        if (type === BELONGS_TO_MANY) {
+          let manyAssoc = mappedAssoc as AssociationOptionsBelongsToMany;
+          let through = manyAssoc.through;
+
+          // FIXME: Don't throw here and make it required somehow during decoration
+          // Not currently possible because there is one @assoc decorator
+          // and not a separate one for belongs to many.
+          if (typeof (through) === 'undefined') {
+            throw new Error(`Cannot associate the ${name} model without a decorated through for association ${key}`);
+          }
+
+          let throughOptions;
+
+          // FIXME: Test this in a better way somehow
+          try {
+            throughOptions = getModelOptions(through as ModelConstructor<any>);
+          } catch (err) {
+            // Not a ModelSafe model
+            throughOptions = {};
+          }
+
+          // Rejig to use the already defined internal model if it's a ModelSafe model
+          if (throughOptions.name) {
+            through = this.internalModels[throughOptions.name];
+
+            // If there's no internal model, they haven't called `define`.
+            if (!through) {
+              throw new Error(`Cannot associate the ${name} model without a database-defined through for association ${key}`);
+            }
+
+            manyAssoc.through = through;
+          }
         }
 
         switch (type) {
         case HAS_ONE: internalModel.hasOne(targetModel, mappedAssoc); break;
         case HAS_MANY: internalModel.hasMany(targetModel, mappedAssoc); break;
         case BELONGS_TO: internalModel.belongsTo(targetModel, mappedAssoc); break;
-        case BELONGS_TO_MANY: internalModel.belongsToMany(targetModel, mappedAssoc); break;
+
+        // FIXME: Any cast required because our belongs to many options aren't type equivalent (but function the same)
+        case BELONGS_TO_MANY:
+          internalModel.belongsToMany(targetModel, mappedAssoc as any as SequelizeAssociationOptionsBelongsToMany);
+
+          break;
         }
       }
     }
