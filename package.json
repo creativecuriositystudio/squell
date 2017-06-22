@@ -20,8 +20,10 @@
   "scripts": {
     "prepush": "npm run lint && npm run test",
     "prepublish": "npm run build",
+    "publish": "npm run docs:deploy",
     "build": "tsc",
     "docs": "typedoc --out docs src/index.ts",
+    "docs:deploy": "npm run docs && gh-pages -d docs",
     "test": "mocha --opts mocha.opts",
     "test:auto": "mocha --opts mocha.opts --watch",
     "lint": "tslint --format stylish --type-check --project tsconfig.json",
@@ -32,16 +34,17 @@
   "devDependencies": {
     "@types/mocha": "^2.2.33",
     "@types/should": "^8.1.30",
+    "gh-pages": "^1.0.0",
     "husky": "^0.13.2",
     "mocha": "^3.2.0",
     "modelsafe": ">=1.0.0-alpha.5 <2.0.0",
     "sequelize": "^4.1.0",
     "should": "^11.1.2",
     "sqlite": "^2.2.4",
-    "ts-node": "^1.7.2",
+    "ts-node": "^2.1.0",
     "tslint": "^5.0.0",
     "tslint-config-ccs": "^0.5.0",
-    "typedoc": "^0.5.1"
+    "typedoc": "^0.5.10"
   },
   "peerDependencies": {
     "modelsafe": ">=1.0.0-alpha.5 <2.0.0",
@@ -53,6 +56,6 @@
     "@types/sequelize": "^4.0.39",
     "lodash": "^4.17.4",
     "reflect-metadata": "^0.1.8",
-    "typescript": "^2.2.0"
+    "typescript": "^2.2.2"
   }
 }
