@@ -8,6 +8,9 @@
 * [CHANGE] The `drop` method of queries has been renamed to `skip` in order
   to avoid confusion with the database `drop` term (for destroying a database table/schema)
 * [CHANGE] The truncate method of query can now take optional Sequelize truncate options
+* [CHANGE] `through` for belongs to many is no longer auto-generated and must be manually defined
+* [FEATURE] Allow for providing a ModelSafe model as `through` for belongs to many, allowing
+  for more complicated join/through models
 * [FEATURE] There is now a new `drop` command on queries for dropping database tables
 
 # 0.9.0
