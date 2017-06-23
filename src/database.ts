@@ -3,7 +3,7 @@ import 'reflect-metadata';
 import * as Sequelize from 'sequelize';
 import { Model, ModelConstructor, AttributeType, InternalAttributeType,
          ArrayAttributeTypeOptions, EnumAttributeTypeOptions, isLazyLoad,
-         getModelOptions, getAttributes, getAssociations,
+         getModelOptions, getAttributes, getAssociations, AssociationTarget,
          HAS_ONE, HAS_MANY, BELONGS_TO, BELONGS_TO_MANY } from 'modelsafe';
 import { DestroyOptions, DropOptions, Options as SequelizeOptions,
          Sequelize as Connection, SyncOptions, Transaction, Model as SequelizeModel,
@@ -226,6 +226,10 @@ export class Database {
           // and not a separate one for belongs to many.
           if (typeof (through) === 'undefined') {
             throw new Error(`Cannot associate the ${name} model without a decorated through for association ${key}`);
+          }
+
+          if (isLazyLoad(through as AssociationTarget<any>)) {
+            through = (through as () => ModelConstructor<any>)();
           }
 
           let throughOptions;

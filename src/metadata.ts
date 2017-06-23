@@ -1,6 +1,6 @@
 /* tslint:disable:ban-types */
 import 'reflect-metadata';
-import { Model, ModelConstructor } from 'modelsafe';
+import { Model, ModelConstructor, AssociationTarget } from 'modelsafe';
 import { DefineAttributeColumnOptions, DefineOptions, AssociationOptionsBelongsTo,
          AssociationOptionsHasOne, AssociationOptionsHasMany, AssociationOptionsManyToMany,
          Model as SequelizeModel, ThroughOptions, AssociationForeignKeyOptions } from 'sequelize';
@@ -30,7 +30,7 @@ export interface AssociationOptionsBelongsToMany extends AssociationOptionsManyT
    *
    * @see Sequelize
    */
-  through: ModelConstructor<any> | SequelizeModel<any, any> | string | ThroughOptions;
+  through: AssociationTarget<any> | ModelConstructor<any> | SequelizeModel<any, any> | string | ThroughOptions;
 
   /**
    * The name of the foreign key in the join table (representing the target model).
