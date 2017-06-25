@@ -1,3 +1,11 @@
+# 1.0.0-alpha.3
+
+* [FIX] `findOne` and `findById` should only deserialize if they succeeded, to prevent a null dereference
+
+# 1.0.0-alpha.2
+
+* [FIX] 'through' models should be lazy to avoid null-class references
+
 # 1.0.0-alpha.1
 
 * [CHANGE] Moved to ModelSafe alpha 1.0.0-alpha.1

@@ -350,7 +350,9 @@ export class Query<T extends Model> {
     let data = await Promise.resolve(this.internalModel.findOne({ ... options, ... this.compileFindOptions() }));
 
     // FIXME: The any cast is required here to turn the plain T into a Sequelize instance T
-    return await this.model.deserialize((data as any as Instance<T>).toJSON(), { validate: false }) as T;
+    return data ?
+      await this.model.deserialize((data as any as Instance<T>).toJSON(), { validate: false }) as T :
+      null;
   }
 
   /**
@@ -364,7 +366,9 @@ export class Query<T extends Model> {
     let data = await Promise.resolve(this.internalModel.findById(id, options));
 
     // FIXME: The any cast is required here to turn the plain T into a Sequelize instance T
-    return await this.model.deserialize((data as any as Instance<T>).toJSON(), { validate: false }) as T;
+    return data ?
+      await this.model.deserialize((data as any as Instance<T>).toJSON(), { validate: false }) as T :
+      null;
   }
 
   /**
