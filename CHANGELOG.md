@@ -1,3 +1,7 @@
+# 1.0.0-alpha.5
+
+* [FIX] Resolve bug with auto-increment require validation exclusion
+
 # 1.0.0-alpha.4
 
 * [CHANGE] Upgrade to TypeScript 2.3

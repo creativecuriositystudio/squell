@@ -134,7 +134,13 @@ export async function preventAutoIncRequired<T extends Model>(err: ValidationErr
   for (let key of Object.keys(attrs)) {
     let options = getAttributeOptions(err.ctor, key);
 
-    if (options && options.autoIncrement) {
+    // Ignore non-auto increment or things that have no errors
+    if (!options || !options.autoIncrement ||
+        !_.isArray(errors[key]) || errors[key].length < 1) {
+      continue;
+    }
+
+    if (options && options.autoIncrement && errors[key]) {
       errors[key] = _.filter(errors[key], x => x.type !== 'attribute.required');
     }
   }
