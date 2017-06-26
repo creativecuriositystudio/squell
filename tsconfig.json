@@ -8,7 +8,6 @@
     "experimentalDecorators": true,
     "noImplicitAny": true,
     "suppressImplicitAnyIndexErrors": true,
-    "allowSyntheticDefaultImports": true,
     "declaration": true,
     "noUnusedParameters": true,
     "noUnusedLocals": true

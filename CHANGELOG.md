@@ -1,3 +1,9 @@
+# 1.0.0-alpha.4
+
+* [CHANGE] Upgrade to TypeScript 2.3
+* [CHANGE] Require ModelSafe 1.0.0-alpha.8
+* [FIX] ModelSafe required attribute validations are now correctly ignored for auto-ncrement fields
+
 # 1.0.0-alpha.3
 
 * [FIX] `findOne` and `findById` should only deserialize if they succeeded, to prevent a null dereference

@@ -13,7 +13,7 @@ import { FindOptions, WhereOptions, BelongsToAssociation,
        } from 'sequelize';
 
 import { Queryable, AttributeQueryable, AssociationQueryable, ModelQueryables } from './queryable';
-import { getAssociationOptions } from './metadata';
+import { getAttributeOptions, getAssociationOptions } from './metadata';
 import { Where } from './where';
 import { Database } from './database';
 
@@ -113,6 +113,35 @@ export async function coerceInstance<T extends Model>(internalModel: SequelizeMo
   }
 
   return internalModel.build(data as T, { isNewRecord: false }) as any as Instance<T>;
+}
+
+/**
+ * Removes any required attribute errors if the attribute is auto-incremented.
+ *
+ * @param err The validation error to filter.
+ * @returns The validation error without auto-increment required errors.
+ */
+export async function preventAutoIncRequired<T extends Model>(err: ValidationError<T>) {
+  let errors = err.errors;
+
+  if (!errors) {
+    return Promise.reject(err);
+  }
+
+  let attrs = getModelAttributes(err.ctor);
+
+  // Look for auto-increments then filter out required attribute errors
+  for (let key of Object.keys(attrs)) {
+    let options = getAttributeOptions(err.ctor, key);
+
+    if (options && options.autoIncrement) {
+      errors[key] = _.filter(errors[key], x => x.type !== 'attribute.required');
+    }
+  }
+
+  err.errors = errors;
+
+  return Promise.reject(err);
 }
 
 /**
@@ -782,7 +811,7 @@ export class Query<T extends Model> {
 
     // Validate the instance if required
     if (options.validate) {
-      await instance.validate();
+      await instance.validate().catch(preventAutoIncRequired);
     }
 
     let model = this.model;
@@ -842,7 +871,7 @@ export class Query<T extends Model> {
     // Validate all instances if required
     if (options.validate) {
       for (let instance of instances) {
-        await instance.validate();
+        await instance.validate().catch(preventAutoIncRequired);
       }
     }
 

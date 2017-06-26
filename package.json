@@ -1,6 +1,6 @@
 {
   "name": "squell",
-  "version": "1.0.0-alpha.3",
+  "version": "1.0.0-alpha.4",
   "main": "dist/index.js",
   "bugs": "https://github.com/creativecuriositystudio/squell/issues",
   "keywords": [
@@ -37,17 +37,17 @@
     "gh-pages": "^1.0.0",
     "husky": "^0.13.2",
     "mocha": "^3.2.0",
-    "modelsafe": ">=1.0.0-alpha.5 <2.0.0",
+    "modelsafe": ">=1.0.0-alpha.8 <2.0.0",
     "sequelize": "^4.1.0",
     "should": "^11.1.2",
     "sqlite": "^2.2.4",
-    "ts-node": "^2.1.0",
+    "ts-node": "^2.1.2",
     "tslint": "^5.0.0",
     "tslint-config-ccs": "^0.5.0",
     "typedoc": "^0.5.10"
   },
   "peerDependencies": {
-    "modelsafe": ">=1.0.0-alpha.5 <2.0.0",
+    "modelsafe": ">=1.0.0-alpha.8 <2.0.0",
     "sequelize": "^4.1.0"
   },
   "dependencies": {
@@ -56,6 +56,6 @@
     "@types/sequelize": "^4.0.39",
     "lodash": "^4.17.4",
     "reflect-metadata": "^0.1.8",
-    "typescript": "^2.2.2"
+    "typescript": "^2.3.4"
   }
 }

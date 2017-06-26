@@ -1,5 +1,5 @@
 /* tslint:disable:no-magic-numbers */
-import sequelize from 'sequelize';
+import * as sequelize from 'sequelize';
 import 'should';
 
 import { attribute, constant, fn, col } from './queryable';
