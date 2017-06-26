@@ -1,6 +1,6 @@
 {
   "name": "squell",
-  "version": "1.0.0-alpha.6",
+  "version": "1.0.0-alpha.7",
   "main": "dist/index.js",
   "bugs": "https://github.com/creativecuriositystudio/squell/issues",
   "keywords": [
@@ -56,6 +56,6 @@
     "@types/sequelize": "^4.0.62",
     "lodash": "^4.17.4",
     "reflect-metadata": "^0.1.8",
-    "typescript": "~2.3.4"
+    "typescript": "^2.3.4"
   }
 }

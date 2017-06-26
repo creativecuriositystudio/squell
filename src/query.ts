@@ -146,6 +146,8 @@ export async function preventRequiredDefaultValues<T extends Model>(err: Validat
     }
   }
 
+  if (Object.keys(errors).length === 0) return;
+
   err.errors = errors;
 
   return Promise.reject(err);

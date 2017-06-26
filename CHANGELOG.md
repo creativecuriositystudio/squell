@@ -1,3 +1,7 @@
+# 1.0.0-alpha.7
+
+* [FIX] allow validation to succeed if all errors are filtered out for required default value attrs
+
 # 1.0.0-alpha.6
 
 * [FIX] Resolve bug with default-value require validation exclusion
