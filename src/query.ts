@@ -116,12 +116,12 @@ export async function coerceInstance<T extends Model>(internalModel: SequelizeMo
 }
 
 /**
- * Removes any required attribute errors if the attribute is auto-incremented.
+ * Removes any required attribute errors if the attribute has a default value or is auto-incremented.
  *
  * @param err The validation error to filter.
- * @returns The validation error without auto-increment required errors.
+ * @returns The validation error without required errors for default values.
  */
-export async function preventAutoIncRequired<T extends Model>(err: ValidationError<T>) {
+export async function preventRequiredDefaultValues<T extends Model>(err: ValidationError<T>) {
   let errors = err.errors;
 
   if (!errors) {
@@ -130,18 +130,19 @@ export async function preventAutoIncRequired<T extends Model>(err: ValidationErr
 
   let attrs = getModelAttributes(err.ctor);
 
-  // Look for auto-increments then filter out required attribute errors
+  // Look for default values then filter out required attribute errors
   for (let key of Object.keys(attrs)) {
     let options = getAttributeOptions(err.ctor, key);
 
-    // Ignore non-auto increment or things that have no errors
-    if (!options || !options.autoIncrement ||
+    // Ignore non-auto increment and non-default-value or things that have no errors
+    if (!options || (!options.autoIncrement && !options.defaultValue) ||
         !_.isArray(errors[key]) || errors[key].length < 1) {
       continue;
     }
 
-    if (options && options.autoIncrement && errors[key]) {
+    if (options && (options.autoIncrement || options.defaultValue) && errors[key]) {
       errors[key] = _.filter(errors[key], x => x.type !== 'attribute.required');
+      if (errors[key].length === 0) delete errors[key];
     }
   }
 
@@ -256,7 +257,7 @@ export class Query<T extends Model> {
     let attrResult = map(getQueryables(this.model));
     let assocKey;
     let extraOptions = {};
-    let includeOptions = {
+    let includeOptions: IncludeOptions = {
       model: this.db.getInternalModel(model)
     };
 
@@ -284,7 +285,8 @@ export class Query<T extends Model> {
     // and we can still query them correctly.
     if (query) {
       includeOptions = {
-        ... query(new Query<U>(this.db, model)).compileFindOptions(),
+        // FIXME Fuck tha police (re. the cast)
+        ... query(new Query<U>(this.db, model)).compileFindOptions() as IncludeOptions,
         ... includeOptions
       };
     }
@@ -490,7 +492,6 @@ export class Query<T extends Model> {
       ... options,
 
       where: this.compileWheres(),
-      limit: this.options.taken > 0 ? this.options.taken : undefined,
     }));
   }
 
@@ -817,7 +818,7 @@ export class Query<T extends Model> {
 
     // Validate the instance if required
     if (options.validate) {
-      await instance.validate().catch(preventAutoIncRequired);
+      await instance.validate().catch(preventRequiredDefaultValues);
     }
 
     let model = this.model;
@@ -877,7 +878,7 @@ export class Query<T extends Model> {
     // Validate all instances if required
     if (options.validate) {
       for (let instance of instances) {
-        await instance.validate().catch(preventAutoIncRequired);
+        await instance.validate().catch(preventRequiredDefaultValues);
       }
     }
 
@@ -934,7 +935,7 @@ export class Query<T extends Model> {
     let [num, data] = await Promise.resolve(
       this.internalModel
         .update(values as T, {
-          ... options,
+          ... options as SequelizeUpdateOptions,
 
           where: this.compileWheres(),
           limit: this.options.taken > 0 ? this.options.taken : undefined,
@@ -1005,11 +1006,7 @@ export class Query<T extends Model> {
 
     return Promise.resolve(
       this.internalModel
-        .upsert(values as T, {
-          ... options,
-
-          includes: this.compileIncludes()
-        })
+        .upsert(values as T, options)
         .catch(SequelizeValidationError, async (err: SequelizeValidationError) => {
           return Promise.reject(coerceValidationError(model, err));
         })

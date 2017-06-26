@@ -1,3 +1,7 @@
+# 1.0.0-alpha.6
+
+* [FIX] Resolve bug with default-value require validation exclusion
+
 # 1.0.0-alpha.5
 
 * [FIX] Resolve bug with auto-increment require validation exclusion
