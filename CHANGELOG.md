@@ -1,3 +1,7 @@
+# 1.0.0-alpha.9
+
+* [CHANGE] Add custom `ThroughOptions` to support defining a through as non-unique
+
 # 1.0.0-alpha.8
 
 * [FIX] Resolve coerced Sequelizes instances not being saveable without a primary key

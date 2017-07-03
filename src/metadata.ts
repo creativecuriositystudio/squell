@@ -1,9 +1,9 @@
 /* tslint:disable:ban-types */
 import 'reflect-metadata';
-import { Model, ModelConstructor, AssociationTarget } from 'modelsafe';
+import { Model, AssociationTarget } from 'modelsafe';
 import { DefineAttributeColumnOptions, DefineOptions, AssociationOptionsBelongsTo,
          AssociationOptionsHasOne, AssociationOptionsHasMany, AssociationOptionsManyToMany,
-         Model as SequelizeModel, ThroughOptions, AssociationForeignKeyOptions } from 'sequelize';
+         Model as SequelizeModel, AssociationScope, AssociationForeignKeyOptions } from 'sequelize';
 
 /** The meta key for a model's options on a model class. */
 export const MODEL_OPTIONS_META_KEY = 'squell:options';
@@ -30,7 +30,7 @@ export interface AssociationOptionsBelongsToMany extends AssociationOptionsManyT
    *
    * @see Sequelize
    */
-  through: AssociationTarget<any> | ModelConstructor<any> | SequelizeModel<any, any> | string | ThroughOptions;
+  through: AssociationTarget<any> | SequelizeModel<any, any> | string | ThroughOptions;
 
   /**
    * The name of the foreign key in the join table (representing the target model).
@@ -39,6 +39,34 @@ export interface AssociationOptionsBelongsToMany extends AssociationOptionsManyT
    * @see Sequelize
    */
   otherKey?: string | AssociationForeignKeyOptions;
+}
+
+/**
+ * Used for a association table in n:m associations.
+ * This is the same as the Sequelize options with the added ability to
+ * specify a ModelSafe model to use as the join/through.
+ *
+ * @see Sequelize
+ */
+export interface ThroughOptions {
+  /**
+   * The model used to join both sides of the N:M association.
+   */
+  model: AssociationTarget<any> | SequelizeModel<any, any>;
+
+  /**
+   * A key/value set that will be used for association create and find defaults on the through model.
+   * (Remember to add the attributes to the through model)
+   */
+  scope?: AssociationScope;
+
+  /**
+   * If true a unique key will be generated from the foreign keys used (might want to turn this off and create
+   * specific unique keys when using scopes)
+   *
+   * Defaults to true
+   */
+  unique?: boolean;
 }
 
 /**

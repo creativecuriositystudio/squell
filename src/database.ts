@@ -1,6 +1,7 @@
 /** Contains the database connection class. */
 import 'reflect-metadata';
 import * as Sequelize from 'sequelize';
+import * as _ from 'lodash';
 import { Model, ModelConstructor, AttributeType, InternalAttributeType,
          ArrayAttributeTypeOptions, EnumAttributeTypeOptions, isLazyLoad,
          getModelOptions, getAttributes, getAssociations, AssociationTarget,
@@ -15,7 +16,7 @@ import { DestroyOptions, DropOptions, Options as SequelizeOptions,
 
 import { Queryable, attribute } from './queryable';
 import { getModelOptions as getSquellOptions, getAttributeOptions,
-         getAssociationOptions, AssociationOptionsBelongsToMany } from './metadata';
+         getAssociationOptions, AssociationOptionsBelongsToMany, ThroughOptions } from './metadata';
 import { Query } from './query';
 
 /**
@@ -228,30 +229,49 @@ export class Database {
             throw new Error(`Cannot associate the ${name} model without a decorated through for association ${key}`);
           }
 
-          if (isLazyLoad(through as AssociationTarget<any>)) {
-            through = (through as () => ModelConstructor<any>)();
-          }
+          if (typeof (through) !== 'string') {
+            let throughModel = through;
+            let throughObj: ThroughOptions = { model: null, unique: true };
 
-          let throughOptions;
-
-          // FIXME: Test this in a better way somehow
-          try {
-            throughOptions = getModelOptions(through as ModelConstructor<any>);
-          } catch (err) {
-            // Not a ModelSafe model
-            throughOptions = {};
-          }
-
-          // Rejig to use the already defined internal model if it's a ModelSafe model
-          if (throughOptions.name) {
-            through = this.internalModels[throughOptions.name];
-
-            // If there's no internal model, they haven't called `define`.
-            if (!through) {
-              throw new Error(`Cannot associate the ${name} model without a database-defined through for association ${key}`);
+            // Check if it looks like a through options object
+            if (_.isPlainObject(through)) {
+              throughModel = (through as ThroughOptions).model;
+              throughObj = {
+                ... throughObj,
+                ... _.pick(through, ['scope', 'unique']) as ThroughOptions
+              };
             }
 
-            manyAssoc.through = through;
+            // Check if it's a lazy-loadable association target
+            if (isLazyLoad(throughModel as AssociationTarget<any>)) {
+              throughModel = (throughModel as () => ModelConstructor<any>)();
+            }
+
+            let throughOptions;
+
+            // FIXME: Test this in a better way somehow
+            try {
+              throughOptions = getModelOptions(throughModel as ModelConstructor<any>);
+            } catch (err) {
+              // Not a ModelSafe model
+              throughOptions = {};
+            }
+
+            // Rejig to use the already defined internal model if it's a ModelSafe model
+            // If it's a Sequelize model we leave as-is
+            if (throughOptions.name) {
+              let internalThroughModel = this.internalModels[throughOptions.name];
+
+              // If there's no internal model, they haven't called `define`.
+              if (!internalThroughModel) {
+                throw new Error(`Cannot associate the ${name} model without a database-defined through for association ${key}`);
+              }
+
+              throughModel = internalThroughModel;
+            }
+
+            throughObj.model = throughModel as SequelizeModel<any, any>;
+            manyAssoc.through = throughObj;
           }
         }
 
