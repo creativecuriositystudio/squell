@@ -1,3 +1,7 @@
+# 1.0.0-alpha.8
+
+* [FIX] Resolve coerced Sequelizes instances not being saveable without a primary key
+
 # 1.0.0-alpha.7
 
 * [FIX] allow validation to succeed if all errors are filtered out for required default value attrs

@@ -107,12 +107,13 @@ function coerceValidationError<T extends Model>(
  * @returns The Sequelize model instance coerced.
  */
 export async function coerceInstance<T extends Model>(internalModel: SequelizeModel<T, T>,
-                                                      data: T | Partial<T>): Promise<Instance<T>> {
+                                                      data: T | Partial<T>,
+                                                      isNewRecord: boolean = false): Promise<Instance<T>> {
   if (!_.isPlainObject(data)) {
     data = await data.serialize();
   }
 
-  return internalModel.build(data as T, { isNewRecord: false }) as any as Instance<T>;
+  return internalModel.build(data as T, { isNewRecord }) as any as Instance<T>;
 }
 
 /**
@@ -702,8 +703,8 @@ export class Query<T extends Model> {
       // The value is either a serialized JS plain object, or an array of them.
       // Build them into Sequelize instances then save the association if required.
       let coerceSave = async (values: object): Promise<Instance<any>> => {
-        let coerced = await coerceInstance(internalAssocModel, values);
         let keys = Object.keys(values);
+        let coerced = await coerceInstance(internalAssocModel, values, keys.indexOf(internalAssocPrimary) === -1);
 
         // If we have any keys other than the association's primary key,
         // then save the instance. The logic being that if it's
