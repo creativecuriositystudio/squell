@@ -110,7 +110,8 @@ export async function coerceInstance<T extends Model>(internalModel: SequelizeMo
                                                       data: T | Partial<T>,
                                                       isNewRecord: boolean = false): Promise<Instance<T>> {
   if (!_.isPlainObject(data)) {
-    data = await data.serialize();
+    // Specify a hard, reasonable depth so associations and subassocs can be used but circular dependencies don't lock up the app
+    data = await data.serialize({ depth: 16 });
   }
 
   return internalModel.build(data as T, { isNewRecord }) as any as Instance<T>;
@@ -376,7 +377,7 @@ export class Query<T extends Model> {
     // Deserialize all returned Sequelize models
     return Promise.all<T>(data.map(async (item: T): Promise<T> => {
       // FIXME: The any cast is required here to turn the plain T into a Sequelize instance T
-      return await model.deserialize((item as any as Instance<T>).toJSON(), { validate: false }) as T;
+      return await model.deserialize((item as any as Instance<T>).toJSON(), { validate: false, depth: null }) as T;
     }));
   }
 
@@ -391,7 +392,7 @@ export class Query<T extends Model> {
 
     // FIXME: The any cast is required here to turn the plain T into a Sequelize instance T
     return data ?
-      await this.model.deserialize((data as any as Instance<T>).toJSON(), { validate: false }) as T :
+      await this.model.deserialize((data as any as Instance<T>).toJSON(), { validate: false, depth: null }) as T :
       null;
   }
 
@@ -407,7 +408,7 @@ export class Query<T extends Model> {
 
     // FIXME: The any cast is required here to turn the plain T into a Sequelize instance T
     return data ?
-      await this.model.deserialize((data as any as Instance<T>).toJSON(), { validate: false }) as T :
+      await this.model.deserialize((data as any as Instance<T>).toJSON(), { validate: false, depth: null }) as T :
       null;
   }
 
@@ -588,7 +589,8 @@ export class Query<T extends Model> {
    */
   protected async prepare(instance: T, associations: boolean = false): Promise<object> {
     let includes = this.options.includes || [];
-    let data = await this.model.serialize(instance, { associations });
+    // Specify a hard, reasonable depth so associations and subassocs can be used but circular dependencies don't lock up the app
+    let data = await this.model.serialize(instance, { associations, depth: 16 });
 
     // No point doing anything extra if no includes were set.
     if (includes.length < 1) {
@@ -760,7 +762,8 @@ export class Query<T extends Model> {
     // If the value is provided looks like a T instance but isn't actually,
     // coerce it.
     if (_.isPlainObject(instance)) {
-      instance = await this.model.deserialize(instance, { validate: false }) as T;
+      // Specify a hard, reasonable depth so associations and subassocs can be used but circular dependencies don't lock up the app
+      instance = await this.model.deserialize(instance, { validate: false, depth: 16 }) as T;
     }
 
     let primary = this.db.getInternalModelPrimary(this.model);
@@ -779,7 +782,8 @@ export class Query<T extends Model> {
 
       let [num, instances] = await this
         .where(_m => primary.eq(primaryValue))
-        .update(await instance.serialize(), options as UpdateOptions);
+        // Specify a hard, reasonable depth so associations and subassocs can be used but circular dependencies don't lock up the app
+        .update(instance, options as UpdateOptions);
 
       // Handle this just in case.
       // Kind of unexpected behaviour, so we just return null.
@@ -840,7 +844,7 @@ export class Query<T extends Model> {
     }
 
     // Turn the Sequelize data into a ModelSafe class instance
-    return await model.deserialize((data as any as Instance<T>).toJSON(), { validate: false }) as T;
+    return await model.deserialize((data as any as Instance<T>).toJSON(), { validate: false, depth: null }) as T;
   }
 
   /**
@@ -969,7 +973,7 @@ export class Query<T extends Model> {
 
       await Promise.all<T>(data.map(async (item: T): Promise<T> => {
         // FIXME: The any cast is required here to turn the plain T into a Sequelize instance T
-        return await model.deserialize((item as any as Instance<T>).toJSON(), { validate: false }) as T;
+        return await model.deserialize((item as any as Instance<T>).toJSON(), { validate: false, depth: null }) as T;
       }))
     ];
   }

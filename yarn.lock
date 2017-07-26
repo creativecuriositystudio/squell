@@ -865,9 +865,9 @@ mocha@^3.2.0:
     mkdirp "0.5.1"
     supports-color "3.1.2"
 
-"modelsafe@>=1.0.0-alpha.8 <2.0.0":
-  version "1.0.0-alpha.8"
-  resolved "https://registry.yarnpkg.com/modelsafe/-/modelsafe-1.0.0-alpha.8.tgz#7423bda2fe9839ded130b5327716632e3b9af6da"
+modelsafe@^1.0.0-alpha.12:
+  version "1.0.0-alpha.12"
+  resolved "https://registry.yarnpkg.com/modelsafe/-/modelsafe-1.0.0-alpha.12.tgz#e2ecc7c9433b5c0170c197e539af7748cdac519a"
   dependencies:
     "@types/lodash" "^4.14.53"
     "@types/reflect-metadata" "0.0.5"
@@ -1439,7 +1439,7 @@ typescript@2.2.2:
   version "2.2.2"
   resolved "https://registry.yarnpkg.com/typescript/-/typescript-2.2.2.tgz#606022508479b55ffa368b58fee963a03dfd7b0c"
 
-typescript@^2.3.4, typescript@~2.3.4:
+typescript@^2.3.4:
   version "2.3.4"
   resolved "https://registry.yarnpkg.com/typescript/-/typescript-2.3.4.tgz#3d38321828231e434f287514959c37a82b629f42"
 

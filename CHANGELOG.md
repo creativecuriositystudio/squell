@@ -1,3 +1,7 @@
+# 1.0.0-alpha.10
+
+* [FIX] when de/serialising instances, use an infinite depth (or near enough) so associations aren't wiped
+
 # 1.0.0-alpha.9
 
 * [CHANGE] Add custom `ThroughOptions` to support defining a through as non-unique
