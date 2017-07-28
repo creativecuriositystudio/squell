@@ -306,18 +306,20 @@ export class Database {
       });
 
       // Check for duplicate foreign keys on the same model
-      const hasOnesByModel = _.chain(allAssocs).filter(_ => _.type === HAS_ONE).groupBy(_ => _.model).value();
-      const duplicates = _.map(hasOnesByModel, (assocs) => _.xor(assocs,
-        _.uniqWith(assocs, (a: AssocOptions, b: AssocOptions) =>
-          (_.isObject(a.foreignKey) ? (a.foreignKey as any).name : a.foreignKey) ===
-          (_.isObject(b.foreignKey) ? (b.foreignKey as any).name : b.foreignKey)
-      ))) as AssocOptions[][];
+      const hasOnes = _.filter(allAssocs, _ => _.type === HAS_ONE);
+      const duplicates = _.xor(hasOnes,
+        _.uniqWith(hasOnes,
+          (a: AssocOptions, b: AssocOptions) =>
+            a.model === b.model &&
+            a.target === b.target &&
+            (_.isObject(a.foreignKey) ? (a.foreignKey as any).name : a.foreignKey) ===
+            (_.isObject(b.foreignKey) ? (b.foreignKey as any).name : b.foreignKey)
+        )) as AssocOptions[];
 
-      if (duplicates.some(_ => !!_.length)) {
+      if (duplicates.length) {
         throw new Error('Duplicate foreign keys found:\n' +
-        duplicates.map(_ =>
-          _.map(_ => `  ${_.model}.${_.as} -> ${_.target}.${_.foreignKey || (_.foreignKey as any).name}`).join('\n')
-        ).join('\n') + '\nSpecify non-conflicting foreign keys on the associations');
+          duplicates.map(_ => `  ${_.model}.${_.as} -> ${_.target}.${_.foreignKey || (_.foreignKey as any).name}`).join('\n') +
+          '\nSpecify non-conflicting foreign keys on the associations');
       }
     }
 

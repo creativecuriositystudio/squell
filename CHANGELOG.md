@@ -1,3 +1,7 @@
+# 1.0.0-alpha.12
+
+* [FIX] account for target model when determining duplicate foreign keys
+
 # 1.0.0-alpha.11
 
 * [FIX] pass a default foreign key to sequelize for has-one associations. otherwise it does the wrong thing
