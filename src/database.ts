@@ -2,7 +2,7 @@
 import 'reflect-metadata';
 import * as Sequelize from 'sequelize';
 import * as _ from 'lodash';
-import { Model, ModelConstructor, AttributeType, InternalAttributeType,
+import { Model, ModelConstructor, AttributeType, InternalAttributeType, AssociationType,
          ArrayAttributeTypeOptions, EnumAttributeTypeOptions, isLazyLoad,
          getModelOptions, getAttributes, getAssociations, AssociationTarget,
          HAS_ONE, HAS_MANY, BELONGS_TO, BELONGS_TO_MANY } from 'modelsafe';
@@ -56,6 +56,14 @@ function mapType(type: AttributeType): DataTypeAbstract {
 
   default: return null;
   }
+}
+
+interface AssocOptions {
+  type: AssociationType;
+  model: string;
+  as: string;
+  target: string;
+  foreignKey: string | { name: string };
 }
 
 /**
@@ -188,7 +196,7 @@ export class Database {
       let internalModel = this.internalModels[name];
       let assocs = getAssociations(model);
 
-      for (let key of Object.keys(assocs)) {
+      const allAssocs = Object.keys(assocs).map(key => {
         let assocOptions = assocs[key];
         let type = assocOptions.type;
         let target = assocOptions.target;
@@ -217,6 +225,8 @@ export class Database {
 
           ... getAssociationOptions(model, key)
         };
+
+        if (type === HAS_ONE && !mappedAssoc.foreignKey) mappedAssoc.foreignKey = name + 'Id';
 
         if (type === BELONGS_TO_MANY) {
           let manyAssoc = mappedAssoc as AssociationOptionsBelongsToMany;
@@ -286,6 +296,28 @@ export class Database {
 
           break;
         }
+
+        return {
+          type,
+          model: name,
+          target: targetOptions.name,
+          ...mappedAssoc,
+        } as AssocOptions;
+      });
+
+      // Check for duplicate foreign keys on the same model
+      const hasOnesByModel = _.chain(allAssocs).filter(_ => _.type === HAS_ONE).groupBy(_ => _.model).value();
+      const duplicates = _.map(hasOnesByModel, (assocs) => _.xor(assocs,
+        _.uniqWith(assocs, (a: AssocOptions, b: AssocOptions) =>
+          (_.isObject(a.foreignKey) ? (a.foreignKey as any).name : a.foreignKey) ===
+          (_.isObject(b.foreignKey) ? (b.foreignKey as any).name : b.foreignKey)
+      ))) as AssocOptions[][];
+
+      if (duplicates.some(_ => !!_.length)) {
+        throw new Error('Duplicate foreign keys found:\n' +
+        duplicates.map(_ =>
+          _.map(_ => `  ${_.model}.${_.as} -> ${_.target}.${_.foreignKey || (_.foreignKey as any).name}`).join('\n')
+        ).join('\n') + '\nSpecify non-conflicting foreign keys on the associations');
       }
     }
 

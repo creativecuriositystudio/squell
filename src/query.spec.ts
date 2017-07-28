@@ -25,6 +25,7 @@ class Actor extends modelsafe.Model {
   public mentor: Actor;
 
   @modelsafe.assoc(modelsafe.HAS_ONE, () => Actor)
+  @assoc({ foreignKey: 'mentorId' })
   public mentee: Actor;
 }
 
@@ -431,6 +432,17 @@ describe('Query', () => {
         .findOne()
         .then((result) => {
           result.mentee.name.should.equal('Milla Jojovich');
+        });
+    });
+
+    it('should inludes sub-association', async () => {
+      return db.query(Actor)
+        .where(m => m.name.eq('Chris Tucker'))
+        .include(Actor, m => m.mentee,
+          _ => _.include(Actor, _ => _.mentee))
+        .findOne()
+        .then((result) => {
+          result.mentee.mentee.name.should.equal('Bruce Willis');
         });
     });
   });

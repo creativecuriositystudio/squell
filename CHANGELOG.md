@@ -1,3 +1,9 @@
+# 1.0.0-alpha.11
+
+* [FIX] pass a default foreign key to sequelize for has-one associations. otherwise it does the wrong thing
+* [FIX] reject models that have duplicate has-one foreign keys
+* [FEATURE] tests
+
 # 1.0.0-alpha.10
 
 * [FIX] when de/serialising instances, use an infinite depth (or near enough) so associations aren't wiped
