@@ -1,3 +1,7 @@
+# 1.0.0-alpha.13
+
+* [FIX] map sequelize errors into new modelsafe validation error format
+
 # 1.0.0-alpha.12
 
 * [FIX] account for target model when determining duplicate foreign keys

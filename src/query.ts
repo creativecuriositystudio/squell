@@ -82,7 +82,23 @@ function coerceValidationError<T extends Model>(
   // Get all the errors for the specific attribute.
   for (let key of Object.keys(attrs)) {
     errors[key] = _.map(err.get(key), item => {
-      return item.message;
+      switch (item.type.toLowerCase()) {
+      case 'notnull violation':
+        return {
+          type: 'attribute.required',
+          message: 'Required',
+        };
+      case 'unique violation':
+        return {
+          type: 'attribute.unique',
+          message: 'Not unique',
+        };
+      case 'string violation':
+        return {
+          type: 'attribute.string',
+          message: 'Not a string',
+        };
+      }
     });
   }
 
