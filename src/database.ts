@@ -74,7 +74,7 @@ interface AssocOptions {
  */
 export class Database {
   /** The Sequelize connection. */
-  public conn: Connection;
+  conn: Connection;
 
   /** The ModelSafe models to be used with Sequelize. */
   protected models: { [key: string]: ModelConstructor<Model>; };
@@ -146,7 +146,7 @@ export class Database {
    * @param options Extra Sequelize sync options, if required.
    * @returns A promise that resolves when the table syncing is completed.
    */
-  public async sync(options?: SyncOptions): Promise<any> {
+  async sync(options?: SyncOptions): Promise<any> {
     // Translate the ModelSafe model into Sequelize form.
     for (let name of Object.keys(this.models)) {
       let model = this.models[name];
@@ -332,7 +332,7 @@ export class Database {
    * @param options
    * @returns Returns a promise that resolves when the table dropping is completed.
    */
-  public async drop(options?: DropOptions): Promise<any> {
+  async drop(options?: DropOptions): Promise<any> {
     return Promise.resolve(this.conn.drop(options));
   }
 
@@ -341,7 +341,7 @@ export class Database {
    *
    * @param options Extra Sequelize truncate options, if required.
    */
-  public async truncate(options?: DestroyOptions): Promise<any> {
+  async truncate(options?: DestroyOptions): Promise<any> {
     return Promise.resolve(this.conn.truncate(options));
   }
 
@@ -353,7 +353,7 @@ export class Database {
    *           the transaction.
    * @returns The promise result that resolves when the transaction is completed.
    */
-  public async transaction(cb: (tx: Transaction) => Promise<any>): Promise<any> {
+  async transaction(cb: (tx: Transaction) => Promise<any>): Promise<any> {
     // FIXME: Kinda hacky, but we cast any here so that we don't have to have
     // the Bluebird dependency just for this single function. The promise
     // should behave exactly the same as a Bluebird promise.
@@ -364,7 +364,7 @@ export class Database {
    * Close the database connection.
    * Once closed, the database cannot be queried again.
    */
-  public close() {
+  close() {
     this.conn.close();
   }
 
@@ -375,7 +375,7 @@ export class Database {
    * @param model The model class to query.
    * @returns A new query of the model.
    */
-  public query<T extends Model>(model: ModelConstructor<T>): Query<T> {
+  query<T extends Model>(model: ModelConstructor<T>): Query<T> {
     return new Query<T>(this, model);
   }
 
@@ -388,7 +388,7 @@ export class Database {
    * @param model The model constructor.
    * @returns The internal Sequelize model.
    */
-  public getInternalModel<T extends Model>(model: ModelConstructor<T>): SequelizeModel<T, T> {
+  getInternalModel<T extends Model>(model: ModelConstructor<T>): SequelizeModel<T, T> {
     let options = getModelOptions(model);
     let internalModel = this.internalModels[options.name] as SequelizeModel<T, T>;
 
@@ -408,7 +408,7 @@ export class Database {
    * @param model The model class to get the primary attribute for.
    *              The model must be defined on the database before it can be queried.
    */
-  public getInternalModelPrimary<T, U extends Model>(model: ModelConstructor<U>): Queryable<T> {
+  getInternalModelPrimary<T, U extends Model>(model: ModelConstructor<U>): Queryable<T> {
     // FIXME: Wish we didn't have to cast any here, but primaryKeyAttribute isn't exposed
     // by the Sequelize type definitions.
     return attribute((this.getInternalModel<U>(model) as any).primaryKeyAttribute);

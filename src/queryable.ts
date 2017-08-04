@@ -73,7 +73,7 @@ export abstract class Queryable<T> {
    * @param other The queryable or constant value to compare.
    * @returns The generated where query.
    */
-  public eq(other: T | Queryable<T>): Where {
+  eq(other: T | Queryable<T>): Where {
     return this.build(other);
   }
 
@@ -84,7 +84,7 @@ export abstract class Queryable<T> {
    * @param other The queryable or constant value to compare.
    * @returns The generated where query.
    */
-  public ne(other: T | Queryable<T>): Where {
+  ne(other: T | Queryable<T>): Where {
     return this.build(other, '$ne');
   }
 
@@ -95,7 +95,7 @@ export abstract class Queryable<T> {
    * @param other The queryable or constant value to compare.
    * @returns The generated where query.
    */
-  public gt(other: T | Queryable<T>): Where {
+  gt(other: T | Queryable<T>): Where {
     return this.build(other, '$gt');
   }
 
@@ -106,7 +106,7 @@ export abstract class Queryable<T> {
    * @param other The queryable or constant value to compare.
    * @returns The generated where query.
    */
-  public gte(other: T | Queryable<T>): Where {
+  gte(other: T | Queryable<T>): Where {
     return this.build(other, '$gte');
   }
 
@@ -117,7 +117,7 @@ export abstract class Queryable<T> {
    * @param other The queryable or constant value to compare.
    * @returns The generated where query.
    */
-  public lt(other: T | Queryable<T>): Where {
+  lt(other: T | Queryable<T>): Where {
     return this.build(other, '$lt');
   }
 
@@ -128,7 +128,7 @@ export abstract class Queryable<T> {
    * @param other The queryable or constant value to compare.
    * @returns The generated where query.
    */
-  public lte(other: T | Queryable<T>): Where {
+  lte(other: T | Queryable<T>): Where {
     return this.build(other, '$lte');
   }
 
@@ -139,7 +139,7 @@ export abstract class Queryable<T> {
    * @param other The queryable or constant string to compare.
    * @returns The generated where query.
    */
-  public like(other: string | Queryable<T>): Where {
+  like(other: string | Queryable<T>): Where {
     return this.build(other, '$like');
   }
 
@@ -150,7 +150,7 @@ export abstract class Queryable<T> {
    * @param other The queryable or constant string to compare.
    * @returns The generated where query.
    */
-  public notLike(other: string | Queryable<T>): Where {
+  notLike(other: string | Queryable<T>): Where {
     return this.build(other, '$notLike');
   }
 
@@ -161,7 +161,7 @@ export abstract class Queryable<T> {
    * @param other The queryable or constant string to compare.
    * @returns The generated where query.
    */
-  public iLike(other: string | Queryable<T>): Where {
+  iLike(other: string | Queryable<T>): Where {
     return this.build(other, '$iLike');
   }
 
@@ -172,7 +172,7 @@ export abstract class Queryable<T> {
    * @param other The queryable or constant string to compare.
    * @returns The generated where query.
    */
-  public notILike(other: string | Queryable<T>): Where {
+  notILike(other: string | Queryable<T>): Where {
     return this.build(other, '$notILike');
   }
 
@@ -183,7 +183,7 @@ export abstract class Queryable<T> {
    * @param other The queryable or constant bool to compare.
    * @returns The generated where query.
    */
-  public not(other: boolean | Queryable<T>): Where {
+  not(other: boolean | Queryable<T>): Where {
     return this.build(other, '$not');
   }
 
@@ -192,7 +192,7 @@ export abstract class Queryable<T> {
    * any type constraints and generally goes against what Squell was designed for (type-safe queries).
    * Nonetheless, there may be a situation where this is necessary due to typing issues.
    */
-  public cast(): Queryable<any> {
+  cast(): Queryable<any> {
     return this;
   }
 
@@ -205,7 +205,7 @@ export abstract class Queryable<T> {
    * store a function queryable under an actual queryable of the model. The queryable should be set to virtual
    * if it's not meant to be synced to the database.
    */
-  public as<T>(aliased: string | Queryable<T>): Queryable<T> {
+  as<T>(aliased: string | Queryable<T>): Queryable<T> {
     return new AliasQueryable(typeof (aliased) !== 'string' ? aliased.compileLeft() : aliased, this);
   }
 
@@ -216,7 +216,7 @@ export abstract class Queryable<T> {
    * @param other The constant array to check.
    * @returns The generated where query.
    */
-  public in(other: T[]): Where {
+  in(other: T[]): Where {
     return this.build(other, '$in');
   }
 
@@ -227,7 +227,7 @@ export abstract class Queryable<T> {
    * @param other The constant array to check.
    * @returns The generated where query.
    */
-  public notIn(other: T[]): Where {
+  notIn(other: T[]): Where {
     return this.build(other, '$notIn');
   }
 
@@ -239,7 +239,7 @@ export abstract class Queryable<T> {
    * @param other The lower and upper bound constant to check.
    * @returns The generated where query.
    */
-  public between(other: [T, T]): Where {
+  between(other: [T, T]): Where {
     return this.build(other, '$between');
   }
 
@@ -251,7 +251,7 @@ export abstract class Queryable<T> {
    * @param other The constant array to check.
    * @returns The generated where query.
    */
-  public notBetween(other: [T, T]): Where {
+  notBetween(other: [T, T]): Where {
     return this.build(other, '$notBetween');
   }
 
@@ -262,7 +262,7 @@ export abstract class Queryable<T> {
    * @param other The constant array to check.
    * @returns The generated where query.
    */
-  public overlap(other: T[]): Where {
+  overlap(other: T[]): Where {
     return this.build(other, '$overlap');
   }
 
@@ -273,7 +273,7 @@ export abstract class Queryable<T> {
    * @param other The constant array to check.
    * @returns The generated where query.
    */
-  public contains(other: T | T[]): Where {
+  contains(other: T | T[]): Where {
     return this.build(other, '$contains');
   }
 
@@ -284,7 +284,7 @@ export abstract class Queryable<T> {
    * @param other The constant array to check.
    * @returns The generated where query.
    */
-  public contained(other: T[]): Where {
+  contained(other: T[]): Where {
     return this.build(other, '$contained');
   }
 
@@ -295,7 +295,7 @@ export abstract class Queryable<T> {
    * @param other The constant array to check.
    * @returns The generated where query.
    */
-  public any(other: T[]): Where {
+  any(other: T[]): Where {
     return this.build(other, '$any');
   }
 
@@ -306,7 +306,7 @@ export abstract class Queryable<T> {
    * @param other The constant array to check.
    * @returns The generated where query.
    */
-  public adjacent(other: T[]): Where {
+  adjacent(other: T[]): Where {
     return this.build(other, '$adjacent');
   }
 
@@ -317,7 +317,7 @@ export abstract class Queryable<T> {
    * @param other The constant array to check.
    * @returns The generated where query.
    */
-  public strictLeft(other: T[]): Where {
+  strictLeft(other: T[]): Where {
     return this.build(other, '$strictLeft');
   }
 
@@ -328,7 +328,7 @@ export abstract class Queryable<T> {
    * @param other The constant array to check.
    * @returns The generated where query.
    */
-  public strictRight(other: T[]): Where {
+  strictRight(other: T[]): Where {
     return this.build(other, '$strictRight');
   }
 
@@ -339,7 +339,7 @@ export abstract class Queryable<T> {
    * @param other The constant array to check.
    * @returns The generated where query.
    */
-  public noExtendRight(other: T[]): Where {
+  noExtendRight(other: T[]): Where {
     return this.build(other, '$noExtendRight');
   }
 
@@ -350,7 +350,7 @@ export abstract class Queryable<T> {
    * @param other The constant array to check.
    * @returns The generated where query.
    */
-  public noExtendLeft(other: T[]): Where {
+  noExtendLeft(other: T[]): Where {
     return this.build(other, '$noExtendLeft');
   }
 
@@ -367,13 +367,13 @@ export abstract class Queryable<T> {
    * otherwise it would be interpreted as a string). This distinction handles that
    * automatically for all sub-classes of a queryable.
    */
-  public abstract compileRight(): any;
+  abstract compileRight(): any;
 
   /**
    * An abstract method that should compile the queryable into its
    * right-side format.
    */
-  public abstract compileLeft(): any;
+  abstract compileLeft(): any;
 
   /**
    * A generic where query builder, that will compare the queryable
@@ -416,12 +416,12 @@ export class AttributeQueryable<T> extends Queryable<T> {
   }
 
   /** Compiles into the right side format. */
-  public compileRight(): any {
+  compileRight(): any {
     return sequelizeCol(this.name);
   }
 
   /** Compiles into the left side format. */
-  public compileLeft(): any {
+  compileLeft(): any {
     return this.name;
   }
 }
@@ -449,12 +449,12 @@ export class ColumnQueryable<T> extends Queryable<T> {
   }
 
   /** Compiles into the right side format. */
-  public compileRight(): any {
+  compileRight(): any {
     return sequelizeCol(this.name);
   }
 
   /** Compiles into the left side format. */
-  public compileLeft(): never {
+  compileLeft(): never {
     throw new SyntaxError('A column queryable cannot be used as a left operator in a Squell query');
   }
 }
@@ -487,12 +487,12 @@ export class FunctionQueryable<T> extends Queryable<T> {
   }
 
   /** Compiles into the right side format. */
-  public compileRight(): any {
+  compileRight(): any {
     return sequelizeFn.apply(sequelizeFn, [this.name].concat(this.args.map(a => a.compileRight())));
   }
 
   /** Compiles into the left side format. */
-  public compileLeft(): never {
+  compileLeft(): never {
     throw new SyntaxError('A function queryable cannot be used as a left operator in a Squell query');
   }
 }
@@ -518,12 +518,12 @@ export class ConstantQueryable<T> extends Queryable<T> {
   }
 
   /** Compiles into the right side format. */
-  public compileRight(): any {
+  compileRight(): any {
     return this.value;
   }
 
   /** Compiles into the left side format. */
-  public compileLeft(): any {
+  compileLeft(): any {
     return this.value;
   }
 }
@@ -557,12 +557,12 @@ export class AliasQueryable<T> extends Queryable<T> {
   }
 
   /** Compiles into the right side format. */
-  public compileRight(): any {
+  compileRight(): any {
     return [this.aliased.compileRight(), this.name];
   }
 
   /** Compiles into the left side format. */
-  public compileLeft(): never {
+  compileLeft(): never {
     throw new SyntaxError('An aliased queryable cannot be used as a left operator in a Squell query');
   }
 }

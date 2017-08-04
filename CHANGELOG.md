@@ -1,3 +1,10 @@
+# 1.0.0-alpha.15
+
+* [FEATURE] add `Query.merge` to allow two queries to be merged
+* [FEATURE] store rich includes to allow for recursively mergable includes
+* [FEATURE] add `associateOnly` as include option that doesn't save the data on included associations, just sets the association
+* [FIX] use transaction in all sequelize calls in `update()`
+
 # 1.0.0-alpha.14
 
 * [FIX] when associating belongs-tos in update, check original data for direct id attr, not data from db
