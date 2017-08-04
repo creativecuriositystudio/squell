@@ -8,7 +8,7 @@ import { FindOptions, WhereOptions, BelongsToAssociation,
          CountOptions, AggregateOptions, CreateOptions as SequelizeCreateOptions,
          UpdateOptions as SequelizeUpdateOptions,
          BulkCreateOptions, UpsertOptions, FindOrInitializeOptions,
-         IncludeOptions, Utils, ValidationError as SequelizeValidationError,
+         IncludeOptions as SequelizeIncludeOptions, Utils, ValidationError as SequelizeValidationError,
          Model as SequelizeModel, Transaction, TruncateOptions, DropOptions, Instance
        } from 'sequelize';
 
@@ -39,8 +39,8 @@ export interface QueryOptions {
   /** The array of attribute filters for the query. */
   attrs: Queryable<any>[];
 
-  /** The array of association filters for the query. */
-  includes: IncludeOptions[];
+  /** The array of associations for the query. */
+  includes: IncludeOptions<Model>[];
 
   /** The array of attribute orderings for the query. */
   orderings: QueryableOrder<any>[];
@@ -50,6 +50,24 @@ export interface QueryOptions {
 
   /** The number of records to take (i.e. LIMIT). */
   taken: number;
+}
+
+/** Include options for a Squell association include. */
+export interface IncludeOptions<T extends Model> {
+  /** Association model. */
+  model: ModelConstructor<T>;
+
+  /** Association key. */
+  as: string;
+
+  /** Association query that could contain wheres, includes, etc. */
+  query?: Query<T>;
+
+  /** Whether the association must exist for the whole query to succeed. */
+  required?: boolean;
+
+  /** Whether the association should also be saved during a top-level save/update/upsert */
+  associateOnly?: boolean;
 }
 
 /** Extra options for updating model instances. */
@@ -73,7 +91,8 @@ export interface CreateOptions extends SequelizeCreateOptions {
  */
 function coerceValidationError<T extends Model>(
   ctor: ModelConstructor<T>,
-  err: SequelizeValidationError
+  err: SequelizeValidationError,
+  prefix?: string,
 ): ValidationError<T> {
   let errors = {};
   let attrs = getModelAttributes(ctor);
@@ -81,7 +100,7 @@ function coerceValidationError<T extends Model>(
 
   // Get all the errors for the specific attribute.
   for (let key of Object.keys(attrs)) {
-    errors[key] = _.map(err.get(key), item => {
+    errors[(prefix ? prefix + '.' : '') + key] = _.map(err.get(key), item => {
       switch (item.type.toLowerCase()) {
       case 'notnull violation':
         return {
@@ -102,12 +121,11 @@ function coerceValidationError<T extends Model>(
     });
   }
 
-  // Just set empty. We don't validate associations (yet).
   for (let key of Object.keys(assocs)) {
-    errors[key] = [];
+    errors[(prefix ? prefix + '.' : '') + key] = [];
   }
 
-  let result = new ValidationError<T>(ctor, err.message, errors as ModelErrors<T>);
+  let result = new ValidationError<T>(ctor, 'Validation error', errors as ModelErrors<T>);
 
   // Merge the stack.
   result.stack = `${result.stack}\ncaused by ${err.stack}`;
@@ -200,16 +218,16 @@ function getQueryables<T extends Model>(ctor: ModelConstructor<T>): ModelQueryab
  */
 export class Query<T extends Model> {
   /** The Squell database that generated the query relates to. */
-  private db: Database;
+  db: Database;
 
   /** The model being queried. */
-  private model: ModelConstructor<T>;
+  model: ModelConstructor<T>;
+
+  /** The options for the query, include wheres, includes, etc. */
+  options: QueryOptions;
 
   /** The internal Sequelize representation of the model. */
   private internalModel: SequelizeModel<T, T>;
-
-  /** The options for the query, include wheres, includes, etc. */
-  private options: QueryOptions;
 
   /**
    * Construct a query. This generally should not be done by user code,
@@ -232,13 +250,46 @@ export class Query<T extends Model> {
   }
 
   /**
+   * Merge two queries into a new one, preferencing the given query.
+   * Wheres, attrs, and orderings are concatenated;
+   * Includes are recursively merged; and
+   * Skipped and taken are overridden
+   *
+   * @param other The other query to merge into the first
+   * @returns The new merged query.
+   */
+  merge(other: Query<T>): Query<T> {
+    let options: QueryOptions = {
+      ... this.options,
+      ... other.options,
+      wheres: this.options.wheres.concat(other.options.wheres),
+      attrs: this.options.attrs.concat(other.options.attrs),
+      orderings: this.options.orderings.concat(other.options.orderings),
+      includes: this.options.includes.concat(other.options.includes),
+    };
+
+    // Unionise includes and recursively merge their subqueries
+    options.includes =
+      _.chain(options.includes)
+      .groupBy(_ => _.as)
+      .map((_: IncludeOptions<Model>[]) => ({
+        ... _[0],
+        ... _[1],
+        query: _[0].query.merge(_[1].query),
+      } as IncludeOptions<Model>))
+      .value();
+
+    return new Query<T>(this.db, this.model, options);
+  }
+
+  /**
    * Filter a query using a where query.
    *
    * @param map A function that will take the queryable model properties
    *            and produce the where query to filter the query with.
    * @returns   The filtered query.
    */
-  public where(map: (queryables: ModelQueryables<T>) => Where): Query<T> {
+  where(map: (queryables: ModelQueryables<T>) => Where): Query<T> {
     let options = { ... this.options, wheres: this.options.wheres.concat(map(getQueryables(this.model))) };
 
     return new Query<T>(this.db, this.model, options);
@@ -251,7 +302,7 @@ export class Query<T extends Model> {
    *            and produce an array of attributes to be included in the result.
    * @returns The new query with the selected attributes only.
    */
-  public attributes(map: (queryable: ModelQueryables<T>) => Queryable<any>[]): Query<T> {
+  attributes(map: (queryable: ModelQueryables<T>) => Queryable<any>[]): Query<T> {
     let attrs = this.options.attrs || [];
     let options = { ... this.options, attrs: attrs.concat(map(getQueryables(this.model))) };
 
@@ -270,19 +321,16 @@ export class Query<T extends Model> {
    *              to the association query.
    * @returns The eagerly-loaded query.
    */
-  public include<U extends Model>(model: ModelConstructor<U>,
-                                  map: (queryables: ModelQueryables<T>) => Queryable<any> | [Queryable<any>, IncludeOptions],
-                                  query?: (query: Query<U>) => Query<U>): Query<T> {
+  include<U extends Model>(model: ModelConstructor<U>,
+                           map: (queryables: ModelQueryables<T>) => Queryable<any> | [Queryable<any>, Partial<IncludeOptions<U>>],
+                           query?: (query: Query<U>) => Query<U>): Query<T> {
     let includes = this.options.includes || [];
     let attrResult = map(getQueryables(this.model));
-    let assocKey;
-    let extraOptions = {};
-    let includeOptions: IncludeOptions = {
-      model: this.db.getInternalModel(model)
-    };
+    let assocKey: string;
+    let extraOptions = {} as IncludeOptions<U>;
 
     if (Array.isArray(attrResult)) {
-      let [assocAttr, assocIncludeOptions] = attrResult as [Queryable<any>, IncludeOptions];
+      let [assocAttr, assocIncludeOptions] = attrResult as [Queryable<any>, IncludeOptions<U>];
 
       assocKey = assocAttr.compileLeft();
       extraOptions = assocIncludeOptions;
@@ -291,30 +339,34 @@ export class Query<T extends Model> {
     }
 
     let assocOptions = getAssociationOptions(this.model, assocKey);
+    if (assocOptions && assocOptions.as) assocKey = assocOptions.as as string;
 
-    includeOptions = {
-      as: assocOptions && assocOptions.as ? assocOptions.as : assocKey,
+    const existingIncludeIndex = includes.findIndex(_ => _.as === assocKey);
+    const existingInclude = includes[existingIncludeIndex] as IncludeOptions<U>;
 
-      ... includeOptions,
-      ... extraOptions
+    let includeOptions: IncludeOptions<U> = {
+      model,
+      as: assocKey,
+      associateOnly: false,
+
+      ...existingInclude,
+      ...extraOptions,
     };
 
-    // If the association has been defined,
-    // use the as option from there. This allows
-    // users of the library to provide custom `as` options
-    // and we can still query them correctly.
-    if (query) {
-      includeOptions = {
-        // FIXME Fuck tha police (re. the cast)
-        ... query(new Query<U>(this.db, model)).compileFindOptions() as IncludeOptions,
-        ... includeOptions
-      };
+    if (query) includeOptions.query = query(new Query<U>(this.db, model));
+
+    if (existingInclude) {
+      includeOptions.query = includeOptions ?
+        existingInclude.query.merge(includeOptions.query) :
+        existingInclude.query;
     }
 
     let options = {
       ... this.options,
 
-      includes: includes.concat([includeOptions])
+      includes: (existingInclude ?
+        includes.slice(0, existingIncludeIndex).concat(includes.slice(existingIncludeIndex + 1)) :
+        includes).concat([includeOptions])
     };
 
     return new Query<T>(this.db, this.model, options);
@@ -325,20 +377,19 @@ export class Query<T extends Model> {
    *
    * @returns The eagerly-loaded query.
    */
-  public includeAll(): Query<T> {
+  includeAll(options?: Partial<IncludeOptions<Model>>): Query<T> {
     let query: Query<T> = this;
     const assocs = getModelAssociations(this.model);
 
     for (let key of Object.keys(assocs)) {
-      let options = assocs[key];
-      let target = options.target;
+      let target = assocs[key].target;
 
       // Lazily load the target if required.
       if (isLazyLoad(target)) {
         target = (target as () => ModelConstructor<any>)();
       }
 
-      query = query.include(target as ModelConstructor<any>, _ => new AssociationQueryable(key));
+      query = query.include(target as ModelConstructor<any>, _ => [new AssociationQueryable(key), options]);
     }
 
     return query;
@@ -351,7 +402,7 @@ export class Query<T extends Model> {
    *            and produce an array of attribute orders for the result to be ordered by.
    * @returns    The ordered query.
    */
-  public order(map: (queryables: ModelQueryables<T>) => QueryableOrder<any>[]): Query<T> {
+  order(map: (queryables: ModelQueryables<T>) => QueryableOrder<any>[]): Query<T> {
     let orderings = this.options.orderings || [];
     let options = { ... this.options, orderings: orderings.concat(map(getQueryables(this.model))) };
 
@@ -363,7 +414,7 @@ export class Query<T extends Model> {
    * This essentially increases the OFFSET amount,
    * and will only affect the find and findOne queries.
    */
-  public skip(num: number): Query<T> {
+  skip(num: number): Query<T> {
     let options = { ... this.options, skipped: this.options.skipped + num };
 
     return new Query<T>(this.db, this.model, options);
@@ -374,7 +425,7 @@ export class Query<T extends Model> {
    * This increases the LIMIT amount and will affect find,
    * findOne, restore, destroy, aggregation and updates.
    */
-  public take(num: number): Query<T> {
+  take(num: number): Query<T> {
     let options = { ... this.options, taken: this.options.taken + num };
 
     return new Query<T>(this.db, this.model, options);
@@ -386,7 +437,7 @@ export class Query<T extends Model> {
    * @param options Any extra Sequelize find options required.
    * @returns A promise that resolves to a list of found instances if successful.
    */
-  public async find(options?: FindOptions): Promise<T[]> {
+  async find(options?: FindOptions): Promise<T[]> {
     let model = this.model;
     let data = await Promise.resolve(this.internalModel.findAll({ ... options, ... this.compileFindOptions() }));
 
@@ -403,7 +454,7 @@ export class Query<T extends Model> {
    * @param options Any extra Sequelize find options required.
    * @returns A promise that resolves to the found instance if successful.
    */
-  public async findOne(options?: FindOptions): Promise<T> {
+  async findOne(options?: FindOptions): Promise<T> {
     let data = await Promise.resolve(this.internalModel.findOne({ ... options, ... this.compileFindOptions() }));
 
     // FIXME: The any cast is required here to turn the plain T into a Sequelize instance T
@@ -419,7 +470,7 @@ export class Query<T extends Model> {
    * @param options Any extra Sequelize find options required.
    * @returns A promise that resolves to the found instance if successful.
    */
-  public async findById(id: any, options?: FindOptions): Promise<T> {
+  async findById(id: any, options?: FindOptions): Promise<T> {
     let data = await Promise.resolve(this.internalModel.findById(id, options));
 
     // FIXME: The any cast is required here to turn the plain T into a Sequelize instance T
@@ -434,7 +485,7 @@ export class Query<T extends Model> {
    * @param options Any extra truncate options to truncate with.
    * @returns A promise that resolves when the model table has been truncated.
    */
-  public async truncate(options?: TruncateOptions): Promise<void> {
+  async truncate(options?: TruncateOptions): Promise<void> {
     return Promise.resolve(this.internalModel.truncate(options));
   }
 
@@ -444,7 +495,7 @@ export class Query<T extends Model> {
    * @param options Any extra drop options to drop with.
    * @returns A promise that resolves when the model table has been dropped.
    */
-  public async drop(options?: DropOptions): Promise<void> {
+  async drop(options?: DropOptions): Promise<void> {
     return Promise.resolve(this.internalModel.drop(options));
   }
 
@@ -456,7 +507,7 @@ export class Query<T extends Model> {
    * @param options Any extra Sequelize restore options required.
    * @returns A promise that resolves when the instances have been restored successfully.
    */
-  public async restore(options?: RestoreOptions): Promise<void> {
+  async restore(options?: RestoreOptions): Promise<void> {
     return Promise.resolve(this.internalModel.restore({
       ... options,
 
@@ -473,7 +524,7 @@ export class Query<T extends Model> {
    * @param options Any extra Sequelize destroy options required.
    * @returns A promise that resolves when the instances have been destroyed successfully.
    */
-  public async destroy(options?: DestroyOptions): Promise<number> {
+  async destroy(options?: DestroyOptions): Promise<number> {
     return Promise.resolve(this.internalModel.destroy({
       ... options,
 
@@ -489,7 +540,7 @@ export class Query<T extends Model> {
    * @param options Any extra Sequelize count options required.
    * @returns A promise that resolves with the number of records found if successful.
    */
-  public async count(options?: CountOptions): Promise<number> {
+  async count(options?: CountOptions): Promise<number> {
     return Promise.resolve(this.internalModel.count({
       ... options,
 
@@ -506,8 +557,8 @@ export class Query<T extends Model> {
    *            and produce the attribute to aggregate by.
    * @returns A promise that resolves with the aggregation value if successful.
    */
-  public async aggregate(fn: string, map: (attrs: ModelQueryables<T>) => Queryable<any>,
-                         options?: AggregateOptions): Promise<any> {
+  async aggregate(fn: string, map: (attrs: ModelQueryables<T>) => Queryable<any>,
+                  options?: AggregateOptions): Promise<any> {
     return Promise.resolve(this.internalModel.aggregate(map(getQueryables(this.model)).compileLeft(), fn, {
       ... options,
 
@@ -523,8 +574,8 @@ export class Query<T extends Model> {
    *            and produce the attribute to aggregate by.
    * @returns A promise that resolves with the aggregation value if successful.
    */
-  public async min(map: (attrs: ModelQueryables<T>) => Queryable<any>,
-                   options?: AggregateOptions): Promise<any> {
+  async min(map: (attrs: ModelQueryables<T>) => Queryable<any>,
+            options?: AggregateOptions): Promise<any> {
     return Promise.resolve(this.aggregate('min', map, options));
   }
 
@@ -536,8 +587,8 @@ export class Query<T extends Model> {
    *            and produce the attribute to aggregate by.
    * @returns A promise that resolves with the aggregation value if successful.
    */
-  public async max(map: (attrs: ModelQueryables<T>) => Queryable<any>,
-                   options?: AggregateOptions): Promise<any> {
+  async max(map: (attrs: ModelQueryables<T>) => Queryable<any>,
+            options?: AggregateOptions): Promise<any> {
     return Promise.resolve(this.aggregate('max', map, options));
   }
 
@@ -549,8 +600,8 @@ export class Query<T extends Model> {
    *            and produce the attribute to aggregate by.
    * @returns A promise that resolves with the aggregation value if successful.
    */
-  public async sum(map: (attrs: ModelQueryables<T>) => Queryable<any>,
-                   options?: AggregateOptions): Promise<any> {
+  async sum(map: (attrs: ModelQueryables<T>) => Queryable<any>,
+            options?: AggregateOptions): Promise<any> {
     return Promise.resolve(this.aggregate('sum', map, options));
   }
 
@@ -568,7 +619,7 @@ export class Query<T extends Model> {
    * @returns A promise that resolves with the found/created instance and
    *          a bool that is true when an instance was created.
    */
-  public async findOrCreate(defaults?: Partial<T>, options?: FindOrInitializeOptions<T>): Promise<[T, boolean]> {
+  async findOrCreate(defaults?: Partial<T>, options?: FindOrInitializeOptions<T>): Promise<[T, boolean]> {
     let model = this.model;
     let [data, created] = await Promise.resolve(
       this.internalModel
@@ -675,21 +726,19 @@ export class Query<T extends Model> {
       let value = (data as object)[key];
       let internalAssoc = this.internalModel.associations[key];
       let assoc = assocs[key];
-      let assocTarget = assoc.target;
-
-      if (isLazyLoad(assocTarget)) {
-        assocTarget = (assocTarget as () => ModelConstructor<any>)();
-      }
+      const model: ModelConstructor<T> = isLazyLoad(assoc.target) ?
+        (assoc.target as () => ModelConstructor<any>)() :
+        assoc.target as ModelConstructor<T>;
 
       // We need the internal and ModelSafe association in order to see how to save the value.
       // We also ignore undefined values since that means they haven't been
       // loaded/shouldn't be touched.
-      if (!internalAssoc || !assocTarget || typeof (value) === 'undefined') {
+      if (!internalAssoc || !model || typeof (value) === 'undefined') {
         continue;
       }
 
-      let internalAssocModel = this.db.getInternalModel(assocTarget as ModelConstructor<any>);
-      let internalAssocPrimary = this.db.getInternalModelPrimary(assocTarget as ModelConstructor<any>).compileLeft();
+      let internalAssocModel = this.db.getInternalModel(model);
+      let internalAssocPrimary = this.db.getInternalModelPrimary(model).compileLeft();
 
       // Don't attempt to do anything else if the association's
       // foreign value was set - it would have already been associated
@@ -728,8 +777,11 @@ export class Query<T extends Model> {
         // then save the instance. The logic being that if it's
         // just an ID then the user is only trying to update the association
         // and doesn't care if the association instance is updated.
-        if (keys.filter(key => key !== internalAssocPrimary).length > 0) {
-          return coerced.save({ transaction });
+        if (!include.associateOnly && keys.filter(key => key !== internalAssocPrimary).length > 0) {
+          return coerced.save({ transaction })
+            .catch(SequelizeValidationError, async (err: SequelizeValidationError) => {
+              return Promise.reject(coerceValidationError(model, err, key));
+            })
         }
 
         return coerced;
@@ -747,7 +799,7 @@ export class Query<T extends Model> {
     }
 
     return await Promise.resolve(internalInstance.reload({
-      include: this.compileIncludes(),
+      include: this.compileIncludes({ required: null }),
       transaction
     })) as Instance<any>;
   }
@@ -768,7 +820,7 @@ export class Query<T extends Model> {
    *                on the value of the primary key.
    * @returns A promise that resolves with the saved instance if successful.
    */
-  public async save(instance: T, options?: CreateOptions | UpdateOptions): Promise<T> {
+  async save(instance: T, options?: CreateOptions | UpdateOptions): Promise<T> {
     options = {
       validate: true,
 
@@ -798,7 +850,6 @@ export class Query<T extends Model> {
 
       let [num, instances] = await this
         .where(_m => primary.eq(primaryValue))
-        // Specify a hard, reasonable depth so associations and subassocs can be used but circular dependencies don't lock up the app
         .update(instance, options as UpdateOptions);
 
       // Handle this just in case.
@@ -825,7 +876,7 @@ export class Query<T extends Model> {
    * @param option Any extra Sequelize create options required.
    * @returns A promise that resolves with the created instance if successful.
    */
-  public async create(instance: T, options?: CreateOptions): Promise<T> {
+  async create(instance: T, options?: CreateOptions): Promise<T> {
     options = {
       associate: true,
       validate: true,
@@ -879,7 +930,7 @@ export class Query<T extends Model> {
    * @param options Any extra Sequelize bulk create options required.
    * @returns The array of instances created. See above.
    */
-  public async bulkCreate(instances: T[], options?: BulkCreateOptions): Promise<T[]> {
+  async bulkCreate(instances: T[], options?: BulkCreateOptions): Promise<T[]> {
     options = {
       validate: true,
 
@@ -936,7 +987,7 @@ export class Query<T extends Model> {
    * @return A promise that resolves to a tuple with the number of instances updated and
    *         an array of the instances updated, if successful.
    */
-  public async update(values: Partial<T>, options?: UpdateOptions): Promise<[number, T[]]> {
+  async update(values: Partial<T>, options?: UpdateOptions): Promise<[number, T[]]> {
     options = {
       associate: true,
       validate: true,
@@ -974,6 +1025,7 @@ export class Query<T extends Model> {
     data = await Promise.resolve(this.internalModel.findAll({
       where: this.compileWheres(),
       limit: this.options.taken > 0 ? this.options.taken : undefined,
+      transaction: options.transaction,
     }));
 
     if (options.associate) {
@@ -1009,7 +1061,7 @@ export class Query<T extends Model> {
    * @param options Any extra Sequelize upsert options required.
    * @returns A promise that will upsert and contain true if an instance was inserted.
    */
-  public async upsert(values: Partial<T>, options?: UpsertOptions): Promise<boolean> {
+  async upsert(values: Partial<T>, options?: UpsertOptions): Promise<boolean> {
     options = {
       validate: true,
 
@@ -1041,7 +1093,7 @@ export class Query<T extends Model> {
    *
    * @returns The Sequelize representation.
    */
-  public compileFindOptions(): FindOptions {
+  compileFindOptions(): FindOptions {
     let options: FindOptions = {
       where: this.compileWheres(),
     };
@@ -1074,7 +1126,7 @@ export class Query<T extends Model> {
    *
    * @returns The Sequelize representation.
    */
-  public compileWheres(): WhereOptions {
+  compileWheres(): WhereOptions {
     return _.extend.apply(_, [{}].concat(this.options.wheres.map(w => w.compile())));
   }
 
@@ -1083,7 +1135,7 @@ export class Query<T extends Model> {
    *
    * @returns The Sequelize representation.
    */
-  public compileAttributes(): FindOptionsAttributesArray {
+  compileAttributes(): FindOptionsAttributesArray {
     return this.options.attrs.map(w => w.compileRight());
   }
 
@@ -1092,16 +1144,23 @@ export class Query<T extends Model> {
    *
    * @returns The Sequelize representation.
    */
-  public compileOrderings(): any {
+  compileOrderings(): any {
     return this.options.orderings.map(([attr, order]) => [attr.compileLeft(), order.toString()]);
   }
 
   /**
    * Compile the includes to a representation expected by Sequelize, including nested includes
    *
+   * @params overrides Option overrides to enforce certain option fields to be a consistent value
    * @returns The Sequelize representation.
    */
-  public compileIncludes(): any {
-    return this.options.includes || [];
+  compileIncludes(overrides?: { required?: boolean }): SequelizeIncludeOptions[] {
+    return (this.options.includes || []).map(include => ({
+      model: this.db.getInternalModel(include.model),
+      as: include.as,
+      required: include.required,
+      ... include.query ? _.pick(include.query.compileFindOptions(), ['where', 'attributes', 'include']) : null,
+      ... overrides,
+    }));
   }
 }

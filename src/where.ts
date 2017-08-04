@@ -24,7 +24,7 @@ export class Where {
    * @param other The other where query to AND with.
    * @returns The new where query.
    */
-  public and(other: Where): Where {
+  and(other: Where): Where {
     return new Where(_.merge({}, this.compile(), other.compile()));
   }
 
@@ -34,7 +34,7 @@ export class Where {
    * @param other The other where query to OR with.
    * @returns The new where query.
    */
-  public or(other: Where): Where {
+  or(other: Where): Where {
     return new Where({
       $or: [this.compile(), other.compile()],
     });
@@ -45,7 +45,7 @@ export class Where {
    *
    * @returns The compiled where query.
    */
-  public compile(): WhereOptions {
+  compile(): WhereOptions {
     return this.repr;
   }
 }

@@ -21,7 +21,7 @@ class Actor extends modelsafe.Model {
   @modelsafe.attr(modelsafe.INTEGER)
   public age: number;
 
-  @modelsafe.assoc(modelsafe.BELONGS_TO, Actor)
+  @modelsafe.assoc(modelsafe.BELONGS_TO, () => Actor)
   public mentor: Actor;
 
   @modelsafe.assoc(modelsafe.HAS_ONE, () => Actor)
