@@ -651,7 +651,7 @@ export class Query<T extends Model> {
   /**
    * Saves any associations that have been included
    * onto a Sequelize internal model instance, and then
-   * reloads that internal modal data.
+   * reloads that internal model data.
    *
    * @param internalInstance The internal Sequelize model instance.
    * @param data The data that the model originally had in its ModelSafe instance form
@@ -695,7 +695,7 @@ export class Query<T extends Model> {
       // foreign value was set - it would have already been associated
       // during the update or create call.
       if (internalAssoc.associationType === 'BelongsTo' &&
-          internalInstance.get((internalAssoc as BelongsToAssociation).identifier)) {
+          (data as any)[(internalAssoc as BelongsToAssociation).identifier]) {
         continue;
       }
 

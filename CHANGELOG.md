@@ -1,3 +1,7 @@
+# 1.0.0-alpha.14
+
+* [FIX] when associating belongs-tos in update, check original data for direct id attr, not data from db
+
 # 1.0.0-alpha.13
 
 * [FIX] map sequelize errors into new modelsafe validation error format
