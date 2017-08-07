@@ -1,3 +1,8 @@
+# 1.0.0-alpha.17
+
+* [FIX] calculate include depth and use for de/serialisation, to prevent circ deps from causing issues
+* [CHANGE] set associateOnly to true by default as this is the expected behaviour
+
 # 1.0.0-alpha.16
 
 * [CHANGE] upgrade sequelize and fix new typing issues

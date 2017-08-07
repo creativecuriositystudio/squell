@@ -133,6 +133,13 @@ function coerceValidationError<T extends Model>(
   return result;
 }
 
+/** Calculate the max include depth on the given query */
+function calcIncludeDepth(query: Query<Model>, depth: number = 0): number {
+  return query && query.options.includes ?
+    _.max(_.map(query.options.includes, _ => calcIncludeDepth(_.query, depth + 1))) || depth :
+    depth;
+}
+
 /**
  * Coerces a ModelSafe model instance to a Sequelize model instance.
  *
@@ -142,10 +149,10 @@ function coerceValidationError<T extends Model>(
  */
 export async function coerceInstance<T extends Model>(internalModel: SequelizeModel<T, T>,
                                                       data: T | Partial<T>,
+                                                      query: Query<T>,
                                                       isNewRecord: boolean = false): Promise<Instance<T>> {
   if (!_.isPlainObject(data)) {
-    // Specify a hard, reasonable depth so associations and subassocs can be used but circular dependencies don't lock up the app
-    data = await data.serialize({ depth: 16 });
+    data = await data.serialize({ depth: calcIncludeDepth(query) });
   }
 
   return internalModel.build(data as T, { isNewRecord }) as any as Instance<T>;
@@ -347,7 +354,7 @@ export class Query<T extends Model> {
     let includeOptions: IncludeOptions<U> = {
       model,
       as: assocKey,
-      associateOnly: false,
+      associateOnly: true,
 
       ...existingInclude,
       ...extraOptions,
@@ -656,8 +663,8 @@ export class Query<T extends Model> {
    */
   protected async prepare(instance: T, associations: boolean = false): Promise<object> {
     let includes = this.options.includes || [];
-    // Specify a hard, reasonable depth so associations and subassocs can be used but circular dependencies don't lock up the app
-    let data = await this.model.serialize(instance, { associations, depth: 16 });
+
+    let data = await this.model.serialize(instance, { associations, depth: calcIncludeDepth(this) });
 
     // No point doing anything extra if no includes were set.
     if (includes.length < 1) {
@@ -771,7 +778,7 @@ export class Query<T extends Model> {
       // Build them into Sequelize instances then save the association if required.
       let coerceSave = async (values: object): Promise<Instance<any>> => {
         let keys = Object.keys(values);
-        let coerced = await coerceInstance(internalAssocModel, values, keys.indexOf(internalAssocPrimary) === -1);
+        let coerced = await coerceInstance(internalAssocModel, values, include.query, keys.indexOf(internalAssocPrimary) === -1);
 
         // If we have any keys other than the association's primary key,
         // then save the instance. The logic being that if it's
@@ -830,8 +837,7 @@ export class Query<T extends Model> {
     // If the value is provided looks like a T instance but isn't actually,
     // coerce it.
     if (_.isPlainObject(instance)) {
-      // Specify a hard, reasonable depth so associations and subassocs can be used but circular dependencies don't lock up the app
-      instance = await this.model.deserialize(instance, { validate: false, depth: 16 }) as T;
+      instance = await this.model.deserialize(instance, { validate: false, depth: calcIncludeDepth(this) }) as T;
     }
 
     let primary = this.db.getInternalModelPrimary(this.model);
@@ -881,7 +887,7 @@ export class Query<T extends Model> {
       associate: true,
       validate: true,
 
-      ... options
+      ... options,
     };
 
     // If the value is provided looks like a T instance but isn't actually,
