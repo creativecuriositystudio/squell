@@ -781,7 +781,7 @@ export class Query<T extends Model> {
           return coerced.save({ transaction })
             .catch(SequelizeValidationError, async (err: SequelizeValidationError) => {
               return Promise.reject(coerceValidationError(model, err, key));
-            })
+            });
         }
 
         return coerced;
