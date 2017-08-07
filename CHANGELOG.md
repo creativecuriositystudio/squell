@@ -1,3 +1,7 @@
+# 1.0.0-alpha.16
+
+* [CHANGE] upgrade sequelize and fix new typing issues
+
 # 1.0.0-alpha.15
 
 * [FEATURE] add `Query.merge` to allow two queries to be merged

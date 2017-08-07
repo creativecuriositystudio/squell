@@ -1,7 +1,7 @@
 /** Contains all of the queryable querying types. */
 import * as _ from 'lodash';
 import { Model } from 'modelsafe';
-import { col as sequelizeCol, fn as sequelizeFn } from 'sequelize';
+import { WhereOptions, col as sequelizeCol, fn as sequelizeFn } from 'sequelize';
 
 import { Where } from './where';
 
@@ -51,7 +51,7 @@ export function fn(name: string, ...args: Queryable<any>[]): Queryable<any> {
  * this sort of functionality on its own, but this function may be necessary in some cases.
  */
 export function constant<T>(value: any): Queryable<T> {
-  return new ConstantQueryable(value);
+  return new ConstantQueryable<T>(value);
 }
 
 /**
@@ -391,7 +391,7 @@ export abstract class Queryable<T> {
       ? value
       : _.fromPairs([[operator, value]]);
 
-    return new Where(_.fromPairs([[this.compileLeft(), operation]]));
+    return new Where(_.fromPairs([[this.compileLeft(), operation]]) as WhereOptions<any>);
   }
 }
 

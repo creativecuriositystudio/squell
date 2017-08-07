@@ -7,14 +7,14 @@ import { WhereOptions } from 'sequelize';
  */
 export class Where {
   /** The Sequelize representation of the where query. */
-  private repr: WhereOptions;
+  private repr: WhereOptions<any>;
 
   /**
    * Construct a where query from an internal Sequelize representation.
    *
    * @param repr The internal Sequelize query.
    */
-  constructor(repr: WhereOptions) {
+  constructor(repr: WhereOptions<any>) {
     this.repr = repr;
   }
 
@@ -45,7 +45,7 @@ export class Where {
    *
    * @returns The compiled where query.
    */
-  compile(): WhereOptions {
+  compile(): WhereOptions<any> {
     return this.repr;
   }
 }
