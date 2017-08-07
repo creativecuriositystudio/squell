@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
-	<title>AssocOptions | Squell</title>
+	<title>IncludeOptions | Squell</title>
 	<meta name="description" content="">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="../assets/css/main.css">
@@ -56,24 +56,39 @@
 					<a href="../globals.html">Globals</a>
 				</li>
 				<li>
-					<a href="../modules/_database_.html">&quot;database&quot;</a>
+					<a href="../modules/_query_.html">&quot;query&quot;</a>
 				</li>
 				<li>
-					<a href="_database_.assocoptions.html">AssocOptions</a>
+					<a href="_query_.includeoptions.html">IncludeOptions</a>
 				</li>
 			</ul>
-			<h1>Interface AssocOptions</h1>
+			<h1>Interface IncludeOptions&lt;T&gt;</h1>
 		</div>
 	</div>
 </header>
 <div class="container container-main">
 	<div class="row">
 		<div class="col-8 col-content">
+			<section class="tsd-panel tsd-comment">
+				<div class="tsd-comment tsd-typography">
+					<div class="lead">
+						<p>Include options for a Squell association include.</p>
+					</div>
+				</div>
+			</section>
+			<section class="tsd-panel tsd-type-parameters">
+				<h3>Type parameters</h3>
+				<ul class="tsd-type-parameters">
+					<li>
+						<h4>T<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Model</span></h4>
+					</li>
+				</ul>
+			</section>
 			<section class="tsd-panel tsd-hierarchy">
 				<h3>Hierarchy</h3>
 				<ul class="tsd-hierarchy">
 					<li>
-						<span class="target">AssocOptions</span>
+						<span class="target">IncludeOptions</span>
 					</li>
 				</ul>
 			</section>
@@ -81,70 +96,95 @@
 				<h2>Index</h2>
 				<section class="tsd-panel tsd-index-panel">
 					<div class="tsd-index-content">
-						<section class="tsd-index-section tsd-is-not-exported">
+						<section class="tsd-index-section ">
 							<h3>Properties</h3>
 							<ul class="tsd-index-list">
-								<li class="tsd-kind-property tsd-parent-kind-interface tsd-is-not-exported"><a href="_database_.assocoptions.html#as" class="tsd-kind-icon">as</a></li>
-								<li class="tsd-kind-property tsd-parent-kind-interface tsd-is-not-exported"><a href="_database_.assocoptions.html#foreignkey" class="tsd-kind-icon">foreign<wbr>Key</a></li>
-								<li class="tsd-kind-property tsd-parent-kind-interface tsd-is-not-exported"><a href="_database_.assocoptions.html#model" class="tsd-kind-icon">model</a></li>
-								<li class="tsd-kind-property tsd-parent-kind-interface tsd-is-not-exported"><a href="_database_.assocoptions.html#target" class="tsd-kind-icon">target</a></li>
-								<li class="tsd-kind-property tsd-parent-kind-interface tsd-is-not-exported"><a href="_database_.assocoptions.html#type" class="tsd-kind-icon">type</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_query_.includeoptions.html#as" class="tsd-kind-icon">as</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_query_.includeoptions.html#associateonly" class="tsd-kind-icon">associate<wbr>Only</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_query_.includeoptions.html#model" class="tsd-kind-icon">model</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_query_.includeoptions.html#query" class="tsd-kind-icon">query</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_query_.includeoptions.html#required" class="tsd-kind-icon">required</a></li>
 							</ul>
 						</section>
 					</div>
 				</section>
 			</section>
-			<section class="tsd-panel-group tsd-member-group tsd-is-not-exported">
+			<section class="tsd-panel-group tsd-member-group ">
 				<h2>Properties</h2>
-				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface tsd-is-not-exported">
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
 					<a name="as" class="tsd-anchor"></a>
 					<h3>as</h3>
 					<div class="tsd-signature tsd-kind-icon">as<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/creativecuriositystudio/squell//blob/78dd442/src/database.ts#L64">database.ts:64</a></li>
+							<li>Defined in <a href="https://github.com/creativecuriositystudio/squell//blob/78dd442/src/query.ts#L61">query.ts:61</a></li>
 						</ul>
 					</aside>
+					<div class="tsd-comment tsd-typography">
+						<div class="lead">
+							<p>Association key.</p>
+						</div>
+					</div>
 				</section>
-				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface tsd-is-not-exported">
-					<a name="foreignkey" class="tsd-anchor"></a>
-					<h3>foreign<wbr>Key</h3>
-					<div class="tsd-signature tsd-kind-icon">foreign<wbr>Key<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">object</span></div>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
+					<a name="associateonly" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagOptional">Optional</span> associate<wbr>Only</h3>
+					<div class="tsd-signature tsd-kind-icon">associate<wbr>Only<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/creativecuriositystudio/squell//blob/78dd442/src/database.ts#L66">database.ts:66</a></li>
+							<li>Defined in <a href="https://github.com/creativecuriositystudio/squell//blob/78dd442/src/query.ts#L70">query.ts:70</a></li>
 						</ul>
 					</aside>
+					<div class="tsd-comment tsd-typography">
+						<div class="lead">
+							<p>Whether the association should also be saved during a top-level save/update/upsert</p>
+						</div>
+					</div>
 				</section>
-				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface tsd-is-not-exported">
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
 					<a name="model" class="tsd-anchor"></a>
 					<h3>model</h3>
-					<div class="tsd-signature tsd-kind-icon">model<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
+					<div class="tsd-signature tsd-kind-icon">model<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">ModelConstructor</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/creativecuriositystudio/squell//blob/78dd442/src/database.ts#L63">database.ts:63</a></li>
+							<li>Defined in <a href="https://github.com/creativecuriositystudio/squell//blob/78dd442/src/query.ts#L58">query.ts:58</a></li>
 						</ul>
 					</aside>
+					<div class="tsd-comment tsd-typography">
+						<div class="lead">
+							<p>Association model.</p>
+						</div>
+					</div>
 				</section>
-				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface tsd-is-not-exported">
-					<a name="target" class="tsd-anchor"></a>
-					<h3>target</h3>
-					<div class="tsd-signature tsd-kind-icon">target<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
+					<a name="query" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagOptional">Optional</span> query</h3>
+					<div class="tsd-signature tsd-kind-icon">query<span class="tsd-signature-symbol">:</span> <a href="../classes/_query_.query.html" class="tsd-signature-type">Query</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/creativecuriositystudio/squell//blob/78dd442/src/database.ts#L65">database.ts:65</a></li>
+							<li>Defined in <a href="https://github.com/creativecuriositystudio/squell//blob/78dd442/src/query.ts#L64">query.ts:64</a></li>
 						</ul>
 					</aside>
+					<div class="tsd-comment tsd-typography">
+						<div class="lead">
+							<p>Association query that could contain wheres, includes, etc.</p>
+						</div>
+					</div>
 				</section>
-				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface tsd-is-not-exported">
-					<a name="type" class="tsd-anchor"></a>
-					<h3>type</h3>
-					<div class="tsd-signature tsd-kind-icon">type<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">AssociationType</span></div>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
+					<a name="required" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagOptional">Optional</span> required</h3>
+					<div class="tsd-signature tsd-kind-icon">required<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/creativecuriositystudio/squell//blob/78dd442/src/database.ts#L62">database.ts:62</a></li>
+							<li>Defined in <a href="https://github.com/creativecuriositystudio/squell//blob/78dd442/src/query.ts#L67">query.ts:67</a></li>
 						</ul>
 					</aside>
+					<div class="tsd-comment tsd-typography">
+						<div class="lead">
+							<p>Whether the association must exist for the whole query to succeed.</p>
+						</div>
+					</div>
 				</section>
 			</section>
 		</div>
@@ -154,7 +194,7 @@
 					<li class="globals  ">
 						<a href="../globals.html"><em>Globals</em></a>
 					</li>
-					<li class="current tsd-kind-external-module">
+					<li class=" tsd-kind-external-module">
 						<a href="../modules/_database_.html">"database"</a>
 					</li>
 					<li class=" tsd-kind-external-module">
@@ -166,7 +206,7 @@
 					<li class=" tsd-kind-external-module">
 						<a href="../modules/_metadata_.html">"metadata"</a>
 					</li>
-					<li class=" tsd-kind-external-module">
+					<li class="current tsd-kind-external-module">
 						<a href="../modules/_query_.html">"query"</a>
 					</li>
 					<li class=" tsd-kind-external-module">
@@ -188,35 +228,65 @@
 			</nav>
 			<nav class="tsd-navigation secondary menu-sticky">
 				<ul class="before-current">
-					<li class=" tsd-kind-class tsd-parent-kind-external-module">
-						<a href="../classes/_database_.database.html" class="tsd-kind-icon">Database</a>
+					<li class=" tsd-kind-class tsd-parent-kind-external-module tsd-has-type-parameter">
+						<a href="../classes/_query_.query.html" class="tsd-kind-icon">Query</a>
+					</li>
+					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
+						<a href="_query_.createoptions.html" class="tsd-kind-icon">Create<wbr>Options</a>
 					</li>
 				</ul>
 				<ul class="current">
-					<li class="current tsd-kind-interface tsd-parent-kind-external-module tsd-is-not-exported">
-						<a href="_database_.assocoptions.html" class="tsd-kind-icon">Assoc<wbr>Options</a>
+					<li class="current tsd-kind-interface tsd-parent-kind-external-module tsd-has-type-parameter">
+						<a href="_query_.includeoptions.html" class="tsd-kind-icon">Include<wbr>Options</a>
 						<ul>
-							<li class=" tsd-kind-property tsd-parent-kind-interface tsd-is-not-exported">
-								<a href="_database_.assocoptions.html#as" class="tsd-kind-icon">as</a>
+							<li class=" tsd-kind-property tsd-parent-kind-interface">
+								<a href="_query_.includeoptions.html#as" class="tsd-kind-icon">as</a>
 							</li>
-							<li class=" tsd-kind-property tsd-parent-kind-interface tsd-is-not-exported">
-								<a href="_database_.assocoptions.html#foreignkey" class="tsd-kind-icon">foreign<wbr>Key</a>
+							<li class=" tsd-kind-property tsd-parent-kind-interface">
+								<a href="_query_.includeoptions.html#associateonly" class="tsd-kind-icon">associate<wbr>Only</a>
 							</li>
-							<li class=" tsd-kind-property tsd-parent-kind-interface tsd-is-not-exported">
-								<a href="_database_.assocoptions.html#model" class="tsd-kind-icon">model</a>
+							<li class=" tsd-kind-property tsd-parent-kind-interface">
+								<a href="_query_.includeoptions.html#model" class="tsd-kind-icon">model</a>
 							</li>
-							<li class=" tsd-kind-property tsd-parent-kind-interface tsd-is-not-exported">
-								<a href="_database_.assocoptions.html#target" class="tsd-kind-icon">target</a>
+							<li class=" tsd-kind-property tsd-parent-kind-interface">
+								<a href="_query_.includeoptions.html#query" class="tsd-kind-icon">query</a>
 							</li>
-							<li class=" tsd-kind-property tsd-parent-kind-interface tsd-is-not-exported">
-								<a href="_database_.assocoptions.html#type" class="tsd-kind-icon">type</a>
+							<li class=" tsd-kind-property tsd-parent-kind-interface">
+								<a href="_query_.includeoptions.html#required" class="tsd-kind-icon">required</a>
 							</li>
 						</ul>
 					</li>
 				</ul>
 				<ul class="after-current">
-					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
-						<a href="../modules/_database_.html#maptype" class="tsd-kind-icon">map<wbr>Type</a>
+					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
+						<a href="_query_.queryoptions.html" class="tsd-kind-icon">Query<wbr>Options</a>
+					</li>
+					<li class=" tsd-kind-interface tsd-parent-kind-external-module">
+						<a href="_query_.updateoptions.html" class="tsd-kind-icon">Update<wbr>Options</a>
+					</li>
+					<li class=" tsd-kind-type-alias tsd-parent-kind-external-module">
+						<a href="../modules/_query_.html#order" class="tsd-kind-icon">Order</a>
+					</li>
+					<li class=" tsd-kind-type-alias tsd-parent-kind-external-module">
+						<a href="../modules/_query_.html#queryableorder" class="tsd-kind-icon">Queryable<wbr>Order</a>
+					</li>
+					<li class=" tsd-kind-variable tsd-parent-kind-external-module">
+						<a href="../modules/_query_.html#asc" class="tsd-kind-icon">ASC</a>
+					</li>
+					<li class=" tsd-kind-variable tsd-parent-kind-external-module">
+						<a href="../modules/_query_.html#desc" class="tsd-kind-icon">DESC</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
+						<a href="../modules/_query_.html#coerceinstance" class="tsd-kind-icon">coerce<wbr>Instance</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter tsd-is-not-exported">
+						<a href="../modules/_query_.html#coercevalidationerror" class="tsd-kind-icon">coerce<wbr>Validation<wbr>Error</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter tsd-is-not-exported">
+						<a href="../modules/_query_.html#getqueryables" class="tsd-kind-icon">get<wbr>Queryables</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
+						<a href="../modules/_query_.html#preventrequireddefaultvalues" class="tsd-kind-icon">prevent<wbr>Required<wbr>Default<wbr>Values</a>
 					</li>
 				</ul>
 			</nav>
