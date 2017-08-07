@@ -1,3 +1,8 @@
+# 1.0.0-alpha.18
+
+* [FIX] merge duplicate includes properly
+* [FIX] explicitly save new assocs regardless of associatedOnly option
+
 # 1.0.0-alpha.17
 
 * [FIX] calculate include depth and use for de/serialisation, to prevent circ deps from causing issues

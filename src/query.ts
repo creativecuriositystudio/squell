@@ -362,11 +362,8 @@ export class Query<T extends Model> {
 
     if (query) includeOptions.query = query(new Query<U>(this.db, model));
 
-    if (existingInclude) {
-      includeOptions.query = includeOptions ?
-        existingInclude.query.merge(includeOptions.query) :
-        existingInclude.query;
-    }
+    if (existingInclude && existingInclude.query)
+      includeOptions.query = includeOptions.query ? existingInclude.query.merge(includeOptions.query) : existingInclude.query;
 
     let options = {
       ... this.options,
@@ -777,14 +774,15 @@ export class Query<T extends Model> {
       // The value is either a serialized JS plain object, or an array of them.
       // Build them into Sequelize instances then save the association if required.
       let coerceSave = async (values: object): Promise<Instance<any>> => {
-        let keys = Object.keys(values);
-        let coerced = await coerceInstance(internalAssocModel, values, include.query, keys.indexOf(internalAssocPrimary) === -1);
+        const isNewRecord = !values[internalAssocPrimary];
+        let coerced = await coerceInstance(internalAssocModel, values, include.query, isNewRecord);
 
         // If we have any keys other than the association's primary key,
         // then save the instance. The logic being that if it's
         // just an ID then the user is only trying to update the association
         // and doesn't care if the association instance is updated.
-        if (!include.associateOnly && keys.filter(key => key !== internalAssocPrimary).length > 0) {
+        let keys = Object.keys(values);
+        if (isNewRecord || (!include.associateOnly && keys.filter(key => key !== internalAssocPrimary).length > 0)) {
           return coerced.save({ transaction })
             .catch(SequelizeValidationError, async (err: SequelizeValidationError) => {
               return Promise.reject(coerceValidationError(model, err, key));
