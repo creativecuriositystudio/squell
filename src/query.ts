@@ -1140,7 +1140,7 @@ export class Query<T extends Model> {
    * @returns The Sequelize representation.
    */
   compileAttributes(): FindOptionsAttributesArray {
-    return this.options.attrs.map(w => w.compileRight());
+    return this.options.attrs.map(w => w instanceof AttributeQueryable ? w.compileLeft() : w.compileRight());
   }
 
   /**

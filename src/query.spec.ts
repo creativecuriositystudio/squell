@@ -1,6 +1,5 @@
 /* tslint:disable:no-magic-numbers */
 import 'should';
-import * as sequelize from 'sequelize';
 import * as modelsafe from 'modelsafe';
 
 import { Database } from './database';
@@ -128,7 +127,7 @@ describe('Query', () => {
       options.should.deepEqual({
         where: { name: 'Bruce Willis' },
         order: [['name', 'DESC']],
-        attributes: [sequelize.col('name')],
+        attributes: ['name'],
         limit: 5,
         offset: 5
       });

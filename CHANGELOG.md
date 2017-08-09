@@ -1,3 +1,7 @@
+# 1.0.0-alpha.19
+
+* [FIX] compile attributes so they aren't ambiguous
+
 # 1.0.0-alpha.18
 
 * [FIX] merge duplicate includes properly
