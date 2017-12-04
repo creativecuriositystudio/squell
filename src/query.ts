@@ -9,7 +9,7 @@ import { FindOptions, WhereOptions, BelongsToAssociation,
          UpdateOptions as SequelizeUpdateOptions,
          BulkCreateOptions, UpsertOptions, FindOrInitializeOptions,
          IncludeOptions as SequelizeIncludeOptions, Utils, ValidationError as SequelizeValidationError,
-         Model as SequelizeModel, Transaction, TruncateOptions, DropOptions, Instance, AnyWhereOptions,
+         Model as SequelizeModel, Transaction, TruncateOptions, DropOptions, Instance
        } from 'sequelize';
 
 import { Queryable, AttributeQueryable, AssociationQueryable, ModelQueryables } from './queryable';
@@ -443,7 +443,7 @@ export class Query<T extends Model> {
    */
   async find(options?: FindOptions<T>): Promise<T[]> {
     let model = this.model;
-    let data = await Promise.resolve(this.internalModel.findAll({ ... options, ... this.compileFindOptions() }));
+    let data = await Promise.resolve(this.internalModel.findAll({ ... options, ... this.compileFindOptions<T>() }));
 
     // Deserialize all returned Sequelize models
     return Promise.all<T>(data.map(async (item: T): Promise<T> => {
@@ -459,7 +459,7 @@ export class Query<T extends Model> {
    * @returns A promise that resolves to the found instance if successful.
    */
   async findOne(options?: FindOptions<T>): Promise<T> {
-    let data = await Promise.resolve(this.internalModel.findOne({ ... options, ... this.compileFindOptions() }));
+    let data = await Promise.resolve(this.internalModel.findOne({ ... options, ... this.compileFindOptions<T>() }));
 
     // FIXME: The any cast is required here to turn the plain T into a Sequelize instance T
     return data ?
@@ -515,7 +515,7 @@ export class Query<T extends Model> {
     return Promise.resolve(this.internalModel.restore({
       ... options,
 
-      where: this.compileWheres() as any as AnyWhereOptions,
+      where: this.compileWheres(),
       limit: this.options.taken > 0 ? this.options.taken : undefined,
     }));
   }
@@ -532,7 +532,7 @@ export class Query<T extends Model> {
     return Promise.resolve(this.internalModel.destroy({
       ... options,
 
-      where: this.compileWheres() as any as AnyWhereOptions,
+      where: this.compileWheres(),
       limit: this.options.taken > 0 ? this.options.taken : undefined,
     }));
   }
@@ -548,7 +548,7 @@ export class Query<T extends Model> {
     return Promise.resolve(this.internalModel.count({
       ... options,
 
-      where: this.compileWheres() as any as AnyWhereOptions,
+      where: this.compileWheres(),
     }));
   }
 
@@ -566,7 +566,7 @@ export class Query<T extends Model> {
     return Promise.resolve(this.internalModel.aggregate(map(getQueryables(this.model)).compileLeft(), fn, {
       ... options,
 
-      where: this.compileWheres() as any as AnyWhereOptions,
+      where: this.compileWheres(),
     }));
   }
 
@@ -631,7 +631,7 @@ export class Query<T extends Model> {
           ... options,
 
           defaults: defaults as T,
-          where: this.compileWheres() as any as AnyWhereOptions,
+          where: this.compileWheres() as any as WhereOptions<T>,
         })
         .catch(SequelizeValidationError, async (err: SequelizeValidationError) => {
           return Promise.reject(coerceValidationError(model, err));
@@ -783,10 +783,11 @@ export class Query<T extends Model> {
         // and doesn't care if the association instance is updated.
         let keys = Object.keys(values);
         if (isNewRecord || (!include.associateOnly && keys.filter(key => key !== internalAssocPrimary).length > 0)) {
-          return coerced.save({ transaction })
-            .catch(SequelizeValidationError, async (err: SequelizeValidationError) => {
-              return Promise.reject(coerceValidationError(model, err, key));
-            });
+          return Promise.resolve(
+            coerced.save({ transaction })
+              .catch(SequelizeValidationError, async (err: SequelizeValidationError) => {
+                return Promise.reject(coerceValidationError(model, err, key));
+              })) as any as Promise<any>;
         }
 
         return coerced;
@@ -806,7 +807,7 @@ export class Query<T extends Model> {
     return await Promise.resolve(internalInstance.reload({
       include: this.compileIncludes({ required: null }),
       transaction
-    })) as Instance<any>;
+    })) as any as Instance<any>;
   }
 
   /**
@@ -1015,7 +1016,7 @@ export class Query<T extends Model> {
         .update(values as T, {
           ... options as SequelizeUpdateOptions,
 
-          where: this.compileWheres() as any as AnyWhereOptions,
+          where: this.compileWheres(),
           limit: this.options.taken > 0 ? this.options.taken : undefined,
         })
         .catch(SequelizeValidationError, async (err: SequelizeValidationError) => {
@@ -1027,7 +1028,7 @@ export class Query<T extends Model> {
     // so we findAll here to emulate this on other databases.
     // Could be detrimental to performance.
     data = await Promise.resolve(this.internalModel.findAll({
-      where: this.compileWheres() as any as WhereOptions<T>,
+      where: this.compileWheres(),
       limit: this.options.taken > 0 ? this.options.taken : undefined,
       transaction: options.transaction,
     }));
@@ -1097,9 +1098,9 @@ export class Query<T extends Model> {
    *
    * @returns The Sequelize representation.
    */
-  compileFindOptions(): FindOptions<T> {
-    let options: FindOptions<T> = {
-      where: this.compileWheres() as any as WhereOptions<T>,
+  compileFindOptions<U>(): FindOptions<U> {
+    let options: FindOptions<U> = {
+      where: this.compileWheres<U>(),
     };
 
     if (this.options.attrs) {
@@ -1130,7 +1131,7 @@ export class Query<T extends Model> {
    *
    * @returns The Sequelize representation.
    */
-  compileWheres(): WhereOptions<T> {
+  compileWheres<U>(): WhereOptions<U> {
     return _.extend.apply(_, [{}].concat(this.options.wheres.map(w => w.compile())));
   }
 
@@ -1159,12 +1160,20 @@ export class Query<T extends Model> {
    * @returns The Sequelize representation.
    */
   compileIncludes(overrides?: { required?: boolean }): SequelizeIncludeOptions[] {
-    return (this.options.includes || []).map(include => ({
-      model: this.db.getInternalModel(include.model),
-      as: include.as,
-      required: include.required,
-      ... include.query ? _.pick(include.query.compileFindOptions(), ['where', 'attributes', 'include']) : null,
-      ... overrides,
-    }));
+    return (this.options.includes || []).map(include => {
+      const findOpts = include.query ? include.query.compileFindOptions<any>() : null;
+      return {
+        model: this.db.getInternalModel(include.model),
+        as: include.as,
+        required: include.required,
+        ... findOpts ? {
+            where: findOpts.where,
+            attributes: findOpts.attributes,
+            include: findOpts.include,
+          } :
+          null,
+        ... overrides,
+      } as SequelizeIncludeOptions;
+    });
   }
 }

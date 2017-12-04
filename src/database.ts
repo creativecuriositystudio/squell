@@ -197,9 +197,10 @@ export class Database {
       let assocs = getAssociations(model);
 
       const allAssocs = Object.keys(assocs).map(key => {
-        let assocOptions = assocs[key];
-        let type = assocOptions.type;
-        let target = assocOptions.target;
+        let assoc = assocs[key];
+        let type = assoc.type;
+        let target = assoc.target;
+        let assocOptions = getAssociationOptions(model, key);
 
         if (isLazyLoad(target)) {
           target = (target as () => ModelConstructor<any>)();
@@ -220,16 +221,17 @@ export class Database {
         }
 
         let targetModel = this.internalModels[targetOptions.name];
-        let mappedAssoc = {
-          as: key,
+        let targetAssoc = assoc.targetAssoc ? assoc.targetAssoc(getAssociations(target)) : null;
+        let targetAssocOptions = targetAssoc ? getAssociationOptions(targetModel.constructor, targetAssoc.key) : null;
 
-          ... getAssociationOptions(model, key)
-        };
-
-        if (type === HAS_ONE && !mappedAssoc.foreignKey) mappedAssoc.foreignKey = name + 'Id';
+        if ((type === HAS_ONE || type === HAS_MANY) && !assocOptions.foreignKey) {
+          assocOptions.foreignKey = targetAssoc ?
+            targetAssocOptions.foreignKey || targetAssocOptions.as + 'Id' :
+            name + 'Id';
+        }
 
         if (type === BELONGS_TO_MANY) {
-          let manyAssoc = mappedAssoc as AssociationOptionsBelongsToMany;
+          let manyAssoc = assocOptions as AssociationOptionsBelongsToMany;
           let through = manyAssoc.through;
 
           // FIXME: Don't throw here and make it required somehow during decoration
@@ -286,13 +288,17 @@ export class Database {
         }
 
         switch (type) {
-        case HAS_ONE: internalModel.hasOne(targetModel, mappedAssoc); break;
-        case HAS_MANY: internalModel.hasMany(targetModel, mappedAssoc); break;
-        case BELONGS_TO: internalModel.belongsTo(targetModel, mappedAssoc); break;
+        case HAS_ONE: internalModel.hasOne(targetModel, assocOptions); break;
+
+        case HAS_MANY:
+          internalModel.hasMany(targetModel, assocOptions);
+          break;
+
+        case BELONGS_TO: internalModel.belongsTo(targetModel, assocOptions); break;
 
         // FIXME: Any cast required because our belongs to many options aren't type equivalent (but function the same)
         case BELONGS_TO_MANY:
-          internalModel.belongsToMany(targetModel, mappedAssoc as any as SequelizeAssociationOptionsBelongsToMany);
+          internalModel.belongsToMany(targetModel, assocOptions as any as SequelizeAssociationOptionsBelongsToMany);
 
           break;
         }
@@ -301,7 +307,7 @@ export class Database {
           type,
           model: name,
           target: targetOptions.name,
-          ...mappedAssoc,
+          ...assocOptions,
         } as AssocOptions;
       });
 

@@ -1,20 +1,20 @@
 /** Contains the where class. */
 import * as _ from 'lodash';
-import { WhereOptions } from 'sequelize';
+import { AnyWhereOptions, Op } from 'sequelize';
 
 /**
  * Represents a type-safe where query that maps directly to a Sequelize query.
  */
 export class Where {
   /** The Sequelize representation of the where query. */
-  private repr: WhereOptions<any>;
+  private repr: AnyWhereOptions;
 
   /**
    * Construct a where query from an internal Sequelize representation.
    *
    * @param repr The internal Sequelize query.
    */
-  constructor(repr: WhereOptions<any>) {
+  constructor(repr: AnyWhereOptions) {
     this.repr = repr;
   }
 
@@ -36,7 +36,7 @@ export class Where {
    */
   or(other: Where): Where {
     return new Where({
-      $or: [this.compile(), other.compile()],
+      [Op.or]: [this.compile(), other.compile()],
     });
   }
 
@@ -45,7 +45,7 @@ export class Where {
    *
    * @returns The compiled where query.
    */
-  compile(): WhereOptions<any> {
+  compile(): AnyWhereOptions {
     return this.repr;
   }
 }

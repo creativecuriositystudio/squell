@@ -1,7 +1,7 @@
 /** Contains all of the queryable querying types. */
 import * as _ from 'lodash';
 import { Model } from 'modelsafe';
-import { WhereOptions, col as sequelizeCol, fn as sequelizeFn } from 'sequelize';
+import { col as sequelizeCol, fn as sequelizeFn, Op } from 'sequelize';
 
 import { Where } from './where';
 
@@ -85,7 +85,7 @@ export abstract class Queryable<T> {
    * @returns The generated where query.
    */
   ne(other: T | Queryable<T>): Where {
-    return this.build(other, '$ne');
+    return this.build(other, Op.ne);
   }
 
   /**
@@ -96,7 +96,7 @@ export abstract class Queryable<T> {
    * @returns The generated where query.
    */
   gt(other: T | Queryable<T>): Where {
-    return this.build(other, '$gt');
+    return this.build(other, Op.gt);
   }
 
   /**
@@ -107,7 +107,7 @@ export abstract class Queryable<T> {
    * @returns The generated where query.
    */
   gte(other: T | Queryable<T>): Where {
-    return this.build(other, '$gte');
+    return this.build(other, Op.gte);
   }
 
   /**
@@ -118,18 +118,18 @@ export abstract class Queryable<T> {
    * @returns The generated where query.
    */
   lt(other: T | Queryable<T>): Where {
-    return this.build(other, '$lt');
+    return this.build(other, Op.lt);
   }
 
   /**
    * Check if a queryable is not equal to another queryable or constant value.
-   * Equivalent to the $;te operator in Sequelize.
+   * Equivalent to the $lte operator in Sequelize.
    *
    * @param other The queryable or constant value to compare.
    * @returns The generated where query.
    */
   lte(other: T | Queryable<T>): Where {
-    return this.build(other, '$lte');
+    return this.build(other, Op.lte);
   }
 
   /**
@@ -140,7 +140,7 @@ export abstract class Queryable<T> {
    * @returns The generated where query.
    */
   like(other: string | Queryable<T>): Where {
-    return this.build(other, '$like');
+    return this.build(other, Op.like);
   }
 
   /**
@@ -151,7 +151,7 @@ export abstract class Queryable<T> {
    * @returns The generated where query.
    */
   notLike(other: string | Queryable<T>): Where {
-    return this.build(other, '$notLike');
+    return this.build(other, Op.notLike);
   }
 
   /**
@@ -162,7 +162,7 @@ export abstract class Queryable<T> {
    * @returns The generated where query.
    */
   iLike(other: string | Queryable<T>): Where {
-    return this.build(other, '$iLike');
+    return this.build(other, Op.iLike);
   }
 
   /**
@@ -173,7 +173,7 @@ export abstract class Queryable<T> {
    * @returns The generated where query.
    */
   notILike(other: string | Queryable<T>): Where {
-    return this.build(other, '$notILike');
+    return this.build(other, Op.notILike);
   }
 
   /**
@@ -184,7 +184,7 @@ export abstract class Queryable<T> {
    * @returns The generated where query.
    */
   not(other: boolean | Queryable<T>): Where {
-    return this.build(other, '$not');
+    return this.build(other, Op.not);
   }
 
   /**
@@ -217,7 +217,7 @@ export abstract class Queryable<T> {
    * @returns The generated where query.
    */
   in(other: T[]): Where {
-    return this.build(other, '$in');
+    return this.build(other, Op.in);
   }
 
   /**
@@ -228,7 +228,7 @@ export abstract class Queryable<T> {
    * @returns The generated where query.
    */
   notIn(other: T[]): Where {
-    return this.build(other, '$notIn');
+    return this.build(other, Op.notIn);
   }
 
   /**
@@ -240,7 +240,7 @@ export abstract class Queryable<T> {
    * @returns The generated where query.
    */
   between(other: [T, T]): Where {
-    return this.build(other, '$between');
+    return this.build(other, Op.between);
   }
 
   /**
@@ -252,7 +252,7 @@ export abstract class Queryable<T> {
    * @returns The generated where query.
    */
   notBetween(other: [T, T]): Where {
-    return this.build(other, '$notBetween');
+    return this.build(other, Op.notBetween);
   }
 
   /**
@@ -263,7 +263,7 @@ export abstract class Queryable<T> {
    * @returns The generated where query.
    */
   overlap(other: T[]): Where {
-    return this.build(other, '$overlap');
+    return this.build(other, Op.overlap);
   }
 
   /**
@@ -274,7 +274,7 @@ export abstract class Queryable<T> {
    * @returns The generated where query.
    */
   contains(other: T | T[]): Where {
-    return this.build(other, '$contains');
+    return this.build(other, Op.contains);
   }
 
   /**
@@ -285,7 +285,7 @@ export abstract class Queryable<T> {
    * @returns The generated where query.
    */
   contained(other: T[]): Where {
-    return this.build(other, '$contained');
+    return this.build(other, Op.contained);
   }
 
   /**
@@ -296,7 +296,7 @@ export abstract class Queryable<T> {
    * @returns The generated where query.
    */
   any(other: T[]): Where {
-    return this.build(other, '$any');
+    return this.build(other, Op.any);
   }
 
   /**
@@ -307,7 +307,7 @@ export abstract class Queryable<T> {
    * @returns The generated where query.
    */
   adjacent(other: T[]): Where {
-    return this.build(other, '$adjacent');
+    return this.build(other, Op.adjacent);
   }
 
   /**
@@ -318,7 +318,7 @@ export abstract class Queryable<T> {
    * @returns The generated where query.
    */
   strictLeft(other: T[]): Where {
-    return this.build(other, '$strictLeft');
+    return this.build(other, Op.strictLeft);
   }
 
   /**
@@ -329,7 +329,7 @@ export abstract class Queryable<T> {
    * @returns The generated where query.
    */
   strictRight(other: T[]): Where {
-    return this.build(other, '$strictRight');
+    return this.build(other, Op.strictRight);
   }
 
   /**
@@ -340,7 +340,7 @@ export abstract class Queryable<T> {
    * @returns The generated where query.
    */
   noExtendRight(other: T[]): Where {
-    return this.build(other, '$noExtendRight');
+    return this.build(other, Op.noExtendRight);
   }
 
   /**
@@ -351,7 +351,7 @@ export abstract class Queryable<T> {
    * @returns The generated where query.
    */
   noExtendLeft(other: T[]): Where {
-    return this.build(other, '$noExtendLeft');
+    return this.build(other, Op.noExtendLeft);
   }
 
   /**
@@ -382,16 +382,16 @@ export abstract class Queryable<T> {
    * @param other The queryable or constant value.
    * @param operator The Sequelize operator to use in the comparison.
    */
-  protected build(other: any | Queryable<T>, operator: string = '$eq'): Where {
+  protected build(other: any | Queryable<T>, operator: symbol = Op.eq): Where {
     let value = other instanceof Queryable
       ? other.compileRight()
       : other;
 
-    let operation = operator === '$eq'
+    let operation = operator === Op.eq
       ? value
       : _.fromPairs([[operator, value]]);
 
-    return new Where(_.fromPairs([[this.compileLeft(), operation]]) as WhereOptions<any>);
+    return new Where(_.fromPairs([[this.compileLeft(), operation]]));
   }
 }
 
