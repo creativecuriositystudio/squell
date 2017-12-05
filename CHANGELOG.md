@@ -1,3 +1,7 @@
+# 1.0.0-alpha.25
+
+* [FIX] import cloner file into repo, since it's causing a package issue i don't want to work out"
+
 # 1.0.0-alpha.24
 
 * [FIX] switch an extend to use new cloner

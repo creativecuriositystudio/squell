@@ -1,6 +1,6 @@
 {
   "name": "squell",
-  "version": "1.0.0-alpha.24",
+  "version": "1.0.0-alpha.25",
   "main": "dist/index.js",
   "bugs": "https://github.com/creativecuriositystudio/squell/issues",
   "keywords": [
@@ -21,7 +21,7 @@
     "prepush": "npm run lint && npm run test",
     "prepublish": "npm run build",
     "publish": "npm run docs:deploy",
-    "build": "tsc",
+    "build": "tsc && cp src/*.js dist",
     "docs": "typedoc --name Squell --mode modules --out docs src",
     "docs:deploy": "npm run docs && gh-pages -d docs",
     "test": "mocha --opts mocha.opts",
@@ -55,7 +55,6 @@
   "dependencies": {
     "@types/lodash": "^4.14.62",
     "@types/reflect-metadata": "0.0.5",
-    "cloner": "^0.4.0",
     "lodash": "^4.17.4",
     "reflect-metadata": "^0.1.8",
     "typescript": "^2.3.4"

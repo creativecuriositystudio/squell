@@ -2,7 +2,7 @@
 import { AnyWhereOptions, Op } from 'sequelize';
 
 /* tslint:disable-next-line:no-var-requires */
-let cloner = require('cloner');
+let cloner = require('./cloner');
 
 /**
  * Represents a type-safe where query that maps directly to a Sequelize query.

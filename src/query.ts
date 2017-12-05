@@ -13,7 +13,7 @@ import { FindOptions, WhereOptions, BelongsToAssociation,
        } from 'sequelize';
 
 /* tslint:disable-next-line:no-var-requires */
-let cloner = require('cloner');
+let cloner = require('./cloner');
 
 import { Queryable, AttributeQueryable, AssociationQueryable, ModelQueryables } from './queryable';
 import { getAttributeOptions, getAssociationOptions } from './metadata';
