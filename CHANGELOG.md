@@ -1,3 +1,7 @@
+# 1.0.0-alpha.23
+
+* [FIX] use a cloner that can handle symbol keys when merging wheres
+
 # 1.0.0-alpha.22
 
 * [FIX] set `as` in `getAssociation` so all assocs get it

@@ -1,6 +1,8 @@
 /** Contains the where class. */
-import * as _ from 'lodash';
 import { AnyWhereOptions, Op } from 'sequelize';
+
+/* tslint:disable-next-line:no-var-requires */
+let cloner = require('cloner');
 
 /**
  * Represents a type-safe where query that maps directly to a Sequelize query.
@@ -25,7 +27,7 @@ export class Where {
    * @returns The new where query.
    */
   and(other: Where): Where {
-    return new Where(_.merge({}, this.compile(), other.compile()));
+    return new Where(cloner.deep.merge({}, this.compile(), other.compile()));
   }
 
   /**
