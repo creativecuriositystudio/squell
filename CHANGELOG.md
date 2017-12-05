@@ -1,3 +1,7 @@
+# 1.0.0-alpha.22
+
+* [FIX] set `as` in `getAssociation` so all assocs get it
+
 # 1.0.0-alpha.21
 
 * [FIX] allow target assoc to be set on an assoc for cases where the target name is different to the default

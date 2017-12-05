@@ -102,7 +102,6 @@ export function defineAssociationOptions(
                    AssociationOptionsBelongsToMany>
 ) {
   options = {
-    as: key,
     ... Reflect.getMetadata(MODEL_ASSOC_OPTIONS_META_KEY, ctor, key),
     ... options
   };
@@ -147,7 +146,10 @@ export function getAssociationOptions(ctor: Function, key: string | symbol): Ass
                                                                              AssociationOptionsHasOne        |
                                                                              AssociationOptionsHasMany       |
                                                                              AssociationOptionsBelongsToMany {
-  return { ... Reflect.getMetadata(MODEL_ASSOC_OPTIONS_META_KEY, ctor.prototype, key) };
+  return {
+    as: key,
+    ... Reflect.getMetadata(MODEL_ASSOC_OPTIONS_META_KEY, ctor.prototype, key)
+  };
 }
 
 /**
