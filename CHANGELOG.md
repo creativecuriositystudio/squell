@@ -1,3 +1,7 @@
+# 1.0.0-alpha.26
+
+* [FIX] use nodejs version of cloner
+
 # 1.0.0-alpha.25
 
 * [FIX] import cloner file into repo, since it's causing a package issue i don't want to work out"
