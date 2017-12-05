@@ -1169,12 +1169,7 @@ export class Query<T extends Model> {
         model: this.db.getInternalModel(include.model),
         as: include.as,
         required: include.required,
-        ... findOpts ? {
-            where: findOpts.where,
-            attributes: findOpts.attributes,
-            include: findOpts.include,
-          } :
-          null,
+        ... _.pick(findOpts, ['where', 'attributes', 'include']),
         ... overrides,
       } as SequelizeIncludeOptions;
     });

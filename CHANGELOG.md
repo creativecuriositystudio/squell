@@ -1,3 +1,7 @@
+# 1.0.0-alpha.27
+
+* [FIX] pick() exact include sub-query attrs to avoid a sequelize bug
+
 # 1.0.0-alpha.26
 
 * [FIX] use nodejs version of cloner
