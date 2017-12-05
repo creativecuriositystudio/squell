@@ -12,6 +12,9 @@ import { FindOptions, WhereOptions, BelongsToAssociation,
          Model as SequelizeModel, Transaction, TruncateOptions, DropOptions, Instance
        } from 'sequelize';
 
+/* tslint:disable-next-line:no-var-requires */
+let cloner = require('cloner');
+
 import { Queryable, AttributeQueryable, AssociationQueryable, ModelQueryables } from './queryable';
 import { getAttributeOptions, getAssociationOptions } from './metadata';
 import { Where } from './where';
@@ -1132,7 +1135,7 @@ export class Query<T extends Model> {
    * @returns The Sequelize representation.
    */
   compileWheres<U>(): WhereOptions<U> {
-    return _.extend.apply(_, [{}].concat(this.options.wheres.map(w => w.compile())));
+    return cloner.deep.merge.apply(cloner.deep, [{}].concat(this.options.wheres.map(w => w.compile())));
   }
 
   /**

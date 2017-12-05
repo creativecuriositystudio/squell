@@ -1,3 +1,7 @@
+# 1.0.0-alpha.24
+
+* [FIX] switch an extend to use new cloner
+
 # 1.0.0-alpha.23
 
 * [FIX] use a cloner that can handle symbol keys when merging wheres
