@@ -221,11 +221,12 @@ export class Database {
         }
 
         let targetModel = this.internalModels[targetOptions.name];
-        let targetAssoc = assoc.targetAssoc ? assoc.targetAssoc(getAssociations(target)) : null;
-        let targetAssocOptions = targetAssoc ? getAssociationOptions(targetModel.constructor, targetAssoc.key) : null;
 
         if ((type === HAS_ONE || type === HAS_MANY) && !assocOptions.foreignKey) {
-          assocOptions.foreignKey = targetAssoc ?
+          const targetAssoc = assoc.targetAssoc ? assoc.targetAssoc(getAssociations(target)) : null;
+          const targetAssocOptions = targetAssoc ? getAssociationOptions(target.constructor, targetAssoc.key) : null;
+
+          assocOptions.foreignKey = targetAssocOptions ?
             targetAssocOptions.foreignKey || targetAssocOptions.as + 'Id' :
             name + 'Id';
         }

@@ -1,7 +1,7 @@
 /** Contains the type-safe querying interface that wraps Sequelize queries. */
 import * as _ from 'lodash';
 import { Model, ModelConstructor, ModelErrors, ValidationError, isLazyLoad,
-         getAttributes as getModelAttributes,
+         getModelOptions, getAttributes as getModelAttributes,
          getAssociations as getModelAssociations } from 'modelsafe';
 import { FindOptions, WhereOptions, BelongsToAssociation,
          FindOptionsAttributesArray, DestroyOptions, RestoreOptions,
@@ -718,41 +718,55 @@ export class Query<T extends Model> {
    * @returns A promise that resolves with an associated & reloaded instance, or rejects
    *          if there was an error.
    */
-  protected async associate(internalInstance: Instance<T>, data: Partial<T>, transaction?: Transaction): Promise<Instance<T>> {
-    let assocs = getModelAssociations(this.model);
-    let includes = this.options.includes || [];
+  // FIXME this is not recursive! big issue as deep includes will get ignored
+  protected async associate(type: 'create' | 'update', model: ModelConstructor<T>, internalInstance: Instance<T>, data: Partial<T>,
+                            includes: IncludeOptions<Model>[], transaction?: Transaction): Promise<Instance<T>> {
+    // No point doing any operations/reloading if no includes were set.
+    if (includes.length < 1) return internalInstance;
 
-    // No point doing any operations/reloading if
-    // no includes were set.
-    if (includes.length < 1) {
-      return internalInstance;
-    }
+    const modelName = getModelOptions(model).name;
+    const internalModel = this.db.getInternalModel(model);
+    const assocs = getModelAssociations(model);
 
     for (let include of includes) {
       let key = include.as;
       let value = (data as object)[key];
-      let internalAssoc = this.internalModel.associations[key];
+      let internalAssoc = internalModel.associations[key];
       let assoc = assocs[key];
-      const model: ModelConstructor<T> = isLazyLoad(assoc.target) ?
-        (assoc.target as () => ModelConstructor<any>)() :
-        assoc.target as ModelConstructor<T>;
+      const assocModel = isLazyLoad(assoc.target) ?
+        (assoc.target as () => ModelConstructor<Model>)() :
+        assoc.target as ModelConstructor<Model>;
 
       // We need the internal and ModelSafe association in order to see how to save the value.
       // We also ignore undefined values since that means they haven't been
       // loaded/shouldn't be touched.
-      if (!internalAssoc || !model || typeof (value) === 'undefined') {
+      if (!internalAssoc || !assocModel || typeof (value) === 'undefined') {
         continue;
       }
 
-      let internalAssocModel = this.db.getInternalModel(model);
-      let internalAssocPrimary = this.db.getInternalModelPrimary(model).compileLeft();
+      let internalAssocModel = this.db.getInternalModel(assocModel);
+      let internalAssocPrimary = this.db.getInternalModelPrimary(assocModel).compileLeft();
 
       // Don't attempt to do anything else if the association's
       // foreign value was set - it would have already been associated
       // during the update or create call.
-      if (internalAssoc.associationType === 'BelongsTo' &&
-          (data as any)[(internalAssoc as BelongsToAssociation).identifier]) {
+      if (internalAssoc.associationType === 'BelongsTo' && (data as any)[(internalAssoc as BelongsToAssociation).identifier])
         continue;
+
+      // When creating objects for a has-one/has-many relationship, set the foreign key to make the validator happy
+      if (type === 'create' && (internalAssoc.associationType === 'HasOne' || internalAssoc.associationType === 'HasMany')) {
+        const targetAssoc = assoc.targetAssoc ? assoc.targetAssoc(getModelAssociations(assocModel)) : null;
+        const targetAssocOptions = targetAssoc ? getAssociationOptions(assocModel.constructor, targetAssoc.key) : null;
+        const targetAssocForeignKey = targetAssocOptions ?
+          targetAssocOptions.foreignKey as string || targetAssocOptions.as + 'Id' :
+          modelName + 'Id';
+
+        (_.isArray(value) ? value : [value]).forEach((obj: Partial<Model>) => {
+          if (getAttributeOptions(assocModel.constructor, targetAssocForeignKey)) {
+            obj[targetAssocForeignKey] = internalInstance.get(this.db.getInternalModelPrimary(model).compileLeft());
+          }
+          if (targetAssocOptions) delete obj[targetAssocOptions.as as string];
+        });
       }
 
       // This is the same across all associations.
@@ -789,7 +803,7 @@ export class Query<T extends Model> {
           return Promise.resolve(
             coerced.save({ transaction })
               .catch(SequelizeValidationError, async (err: SequelizeValidationError) => {
-                return Promise.reject(coerceValidationError(model, err, key));
+                return Promise.reject(coerceValidationError(assocModel, err, key));
               })) as any as Promise<any>;
         }
 
@@ -808,7 +822,7 @@ export class Query<T extends Model> {
     }
 
     return await Promise.resolve(internalInstance.reload({
-      include: this.compileIncludes({ required: null }),
+      include: this.compileIncludes(null, includes),
       transaction
     })) as any as Instance<any>;
   }
@@ -915,7 +929,8 @@ export class Query<T extends Model> {
 
     if (options.associate) {
       // Save associations of the Sequelize data and reload
-      data = await this.associate((data as any as Instance<T>), values, options ? options.transaction : null) as any as T;
+      data = await this.associate('create', this.model, (data as any as Instance<T>), values, this.options.includes,
+        options.transaction) as any as T;
     }
 
     // Turn the Sequelize data into a ModelSafe class instance
@@ -1039,7 +1054,8 @@ export class Query<T extends Model> {
     if (options.associate) {
       // Save associations of each Sequelize data and reload all
       data = await Promise.all(data.map(async (item: T) => {
-        return await this.associate((item as any as Instance<T>), values, options ? options.transaction : null) as any as T;
+        return await this.associate('update', this.model, (item as any as Instance<T>), values, this.options.includes,
+          options.transaction) as any as T;
       }));
     }
 
@@ -1162,8 +1178,8 @@ export class Query<T extends Model> {
    * @params overrides Option overrides to enforce certain option fields to be a consistent value
    * @returns The Sequelize representation.
    */
-  compileIncludes(overrides?: { required?: boolean }): SequelizeIncludeOptions[] {
-    return (this.options.includes || []).map(include => {
+  compileIncludes(overrides?: { required?: boolean }, includes?: IncludeOptions<Model>[]): SequelizeIncludeOptions[] {
+    return (includes || this.options.includes || []).map(include => {
       const findOpts = include.query ? include.query.compileFindOptions<any>() : null;
       return {
         model: this.db.getInternalModel(include.model),

@@ -1,3 +1,7 @@
+# 1.0.0-alpha.28
+
+* [FIX] make the validator happier when associating in create()
+
 # 1.0.0-alpha.27
 
 * [FIX] pick() exact include sub-query attrs to avoid a sequelize bug
