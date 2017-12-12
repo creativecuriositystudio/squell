@@ -1,3 +1,7 @@
+# 1.0.0-alpha.29
+
+* [FIX] don't `associate()` if no includes are pass at all
+
 # 1.0.0-alpha.28
 
 * [FIX] make the validator happier when associating in create()

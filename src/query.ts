@@ -722,7 +722,7 @@ export class Query<T extends Model> {
   protected async associate(type: 'create' | 'update', model: ModelConstructor<T>, internalInstance: Instance<T>, data: Partial<T>,
                             includes: IncludeOptions<Model>[], transaction?: Transaction): Promise<Instance<T>> {
     // No point doing any operations/reloading if no includes were set.
-    if (includes.length < 1) return internalInstance;
+    if (!includes || includes.length < 1) return internalInstance;
 
     const modelName = getModelOptions(model).name;
     const internalModel = this.db.getInternalModel(model);
