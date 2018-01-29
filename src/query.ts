@@ -101,9 +101,22 @@ function coerceValidationError<T extends Model>(
   let attrs = getModelAttributes(ctor);
   let assocs = getModelAssociations(ctor);
 
-  // Get all the errors for the specific attribute.
-  for (let key of Object.keys(attrs)) {
-    errors[(prefix ? prefix + '.' : '') + key] = _.map(err.get(key), item => {
+  // Preset each attr and assoc error to an empty array
+  const attrKeys = Object.keys(attrs);
+  attrKeys.concat(Object.keys(assocs)).forEach(key => {
+    errors[(prefix ? prefix + '.' : '') + key] = [];
+  });
+
+  // Loop through errors from Sequelize
+  err.errors.map(e => e.path).forEach(key => {
+    // If this key isn't an attr then it's a constraint. Record them separately
+    let errs = errors;
+    if (!_.find(attrKeys, key)) {
+      errors['$constraints'] = errors['$constraints'] || {};
+      errs = errors['$constraints'];
+    }
+
+    errs[(prefix ? prefix + '.' : '') + key] = _.map(err.get(key), item => {
       switch (item.type.toLowerCase()) {
       case 'notnull violation':
         return {
@@ -122,11 +135,7 @@ function coerceValidationError<T extends Model>(
         };
       }
     });
-  }
-
-  for (let key of Object.keys(assocs)) {
-    errors[(prefix ? prefix + '.' : '') + key] = [];
-  }
+  });
 
   let result = new ValidationError<T>(ctor, 'Validation error', errors as ModelErrors<T>);
 
