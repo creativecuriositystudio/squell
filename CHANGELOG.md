@@ -1,3 +1,15 @@
+# 1.0.0-alpha.32
+
+* [FIX] when merging queries, don't assume option params are always set
+
+# 1.0.0-alpha.31
+
+* [FEATURE] coerce constraint validations also (put into errors.$constraints)
+
+# 1.0.0-alpha.30
+
+* [FIX] remove typedoc due to security issue
+
 # 1.0.0-alpha.29
 
 * [FIX] don't `associate()` if no includes are pass at all

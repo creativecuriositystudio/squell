@@ -281,10 +281,10 @@ export class Query<T extends Model> {
     let options: QueryOptions<T> = {
       ... this.options,
       ... other.options,
-      wheres: this.options.wheres.concat(other.options.wheres),
-      attrs: this.options.attrs.concat(other.options.attrs),
-      orderings: this.options.orderings.concat(other.options.orderings),
-      includes: this.options.includes.concat(other.options.includes),
+      wheres: (this.options.wheres || []).concat(other.options.wheres || []),
+      attrs: (this.options.attrs || []).concat(other.options.attrs || []),
+      orderings: (this.options.orderings || []).concat(other.options.orderings || []),
+      includes: (this.options.includes || []).concat(other.options.includes || []),
     };
 
     // Unionise includes and recursively merge their subqueries
