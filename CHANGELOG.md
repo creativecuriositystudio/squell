@@ -1,3 +1,7 @@
+# 1.0.0-alpha.33
+
+* [FIX] when merging queries, don't set existing query onto new one by default. leads to duplicate rules
+
 # 1.0.0-alpha.32
 
 * [FIX] when merging queries, don't assume option params are always set

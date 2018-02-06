@@ -367,9 +367,9 @@ export class Query<T extends Model> {
       model,
       as: assocKey,
       associateOnly: true,
-
       ...existingInclude,
       ...extraOptions,
+      query: null,
     };
 
     if (query) includeOptions.query = query(new Query<U>(this.db, model));
