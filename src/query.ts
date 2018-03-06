@@ -109,9 +109,10 @@ function coerceValidationError<T extends Model>(
 
   // Loop through errors from Sequelize
   err.errors.map(e => e.path).forEach(key => {
-    // If this key isn't an attr then it's a constraint. Record them separately
     let errs = errors;
-    if (!_.find(attrKeys, key)) {
+
+    // If this key isn't an attr then it's a constraint. Record them separately
+    if (!_.includes(attrKeys, key)) {
       errors['$constraints'] = errors['$constraints'] || {};
       errs = errors['$constraints'];
     }
