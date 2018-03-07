@@ -559,6 +559,7 @@ export class Query<T extends Model> {
       ... options,
 
       where: this.compileWheres(),
+      include: this.options.includes ? this.compileIncludes() : undefined,
     }));
   }
 

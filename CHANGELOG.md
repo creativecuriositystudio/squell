@@ -1,3 +1,7 @@
+# 1.0.0-alpha.36
+
+* [FIX] account for includes in `count()`
+
 # 1.0.0-alpha.35
 
 * [FIX] stop `compileWheres()` from breaking dates
