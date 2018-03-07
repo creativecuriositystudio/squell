@@ -1,3 +1,11 @@
+# 1.0.0-alpha.35
+
+* [FIX] stop `compileWheres()` from breaking dates
+
+# 1.0.0-alpha.34
+
+* [FIX] don't put all attribute errors into the `$constraint` group
+
 # 1.0.0-alpha.33
 
 * [FIX] when merging queries, don't set existing query onto new one by default. leads to duplicate rules
