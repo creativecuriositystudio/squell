@@ -1,3 +1,7 @@
+# 2.0.0
+
+* [UPDATE] update to modelsafe 2
+
 # 1.0.0-alpha.36
 
 * [FIX] account for includes in `count()`
