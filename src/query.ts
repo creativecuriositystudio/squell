@@ -1189,8 +1189,7 @@ export class Query<T extends Model> {
    */
   compileAttributes(): FindOptionsAttributesArray {
     return this.options.attrs.map(w =>
-       _.isArray(w) ? w.map(x => x instanceof AttributeQueryable ? x.compileLeft() : x.compileRight()) :
-       w instanceof AttributeQueryable ? w.compileLeft() : w.compileRight());
+       _.isArray(w) ? w.map(x => x instanceof AttributeQueryable ? x.compileLeft() : x.compileRight()) : w.compileLeft());
   }
 
   /**
