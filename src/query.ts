@@ -12,7 +12,7 @@ import { FindOptions, WhereOptions, BelongsToAssociation,
          Model as SequelizeModel, Transaction, TruncateOptions, DropOptions, Instance
        } from 'sequelize';
 
-import { Queryable, AttributeQueryable, AssociationQueryable, ModelQueryables } from './queryable';
+import { Queryable, AttributeQueryable, AssociationQueryable, ModelQueryables, FunctionQueryable, ModelAttributeQueryables } from './queryable';
 import { getAttributeOptions, getAssociationOptions } from './metadata';
 import { Where } from './where';
 import { Database } from './database';
@@ -37,13 +37,16 @@ export interface QueryOptions<T extends Model> {
   wheres: Where[];
 
   /** The array of attribute filters for the query. */
-  attrs: Queryable<T>[];
+  attrs: (AttributeQueryable<any> | [FunctionQueryable<any>, AttributeQueryable<any>])[];
 
   /** The array of associations for the query. */
   includes: IncludeOptions<Model>[];
 
   /** The array of attribute orderings for the query. */
   orderings: QueryableOrder<T>[];
+
+  /** The array of groups used for the query. */
+  groupBys: Queryable<any>[];
 
   /** The number of records to skip (i.e. OFFSET). */
   skipped: number;
@@ -229,6 +232,23 @@ function getQueryables<T extends Model>(ctor: ModelConstructor<T>): ModelQueryab
 }
 
 /**
+ * Get the attribute queryable properties of a model as a mapped type.
+ *
+ * @param ctor The model constructor.
+ * @returns The mapped queryable properties.
+ */
+function getAttributeQueryables<T extends Model>(ctor: ModelConstructor<T>): ModelAttributeQueryables<T> {
+  let result = {};
+  let attrs = getModelAttributes(ctor);
+
+  for (let key of Object.keys(attrs)) {
+    result[key] = new AttributeQueryable(key);
+  }
+
+  return result as ModelAttributeQueryables<T>;
+}
+
+/**
  * A type-safe query on a ModelSafe model.
  * This is the main interaction with the library, and every Squell query compiles
  * down to a relevant Sequelize query.
@@ -319,9 +339,9 @@ export class Query<T extends Model> {
    *            and produce an array of attributes to be included in the result.
    * @returns The new query with the selected attributes only.
    */
-  attributes(map: (queryable: ModelQueryables<T>) => Queryable<any>[]): Query<T> {
+  attributes(map: (queryable: ModelAttributeQueryables<T>) => (AttributeQueryable<any> | [FunctionQueryable<any>, AttributeQueryable<any>])[]): Query<T> {
     let attrs = this.options.attrs || [];
-    let options = { ... this.options, attrs: attrs.concat(map(getQueryables(this.model))) };
+    let options = { ... this.options, attrs: attrs.concat(map(getAttributeQueryables(this.model))) };
 
     return new Query<T>(this.db, this.model, options);
   }
@@ -419,6 +439,21 @@ export class Query<T extends Model> {
   order(map: (queryables: ModelQueryables<T>) => QueryableOrder<any>[]): Query<T> {
     let orderings = this.options.orderings || [];
     let options = { ... this.options, orderings: orderings.concat(map(getQueryables(this.model))) };
+
+    return new Query<T>(this.db, this.model, options);
+  }
+
+  /**
+   * Group a query by an provided grouping function
+   *
+   * @param map A function that will take the queryable model properties
+   *            and produce a function for grouping to used for find/count method
+   *
+   * @returns The grouped query
+   */
+  groupBy(map: (queryables: ModelQueryables<T>) => Queryable<any>[]): Query<T> {
+    let groupBys = this.options.groupBys || [];
+    let options = { ... this.options, groupBys: groupBys.concat(map(getQueryables(this.model))) };
 
     return new Query<T>(this.db, this.model, options);
   }
@@ -1126,29 +1161,14 @@ export class Query<T extends Model> {
    * @returns The Sequelize representation.
    */
   compileFindOptions<U>(): FindOptions<U> {
-    let options: FindOptions<U> = {
-      where: this.compileWheres<U>(),
-    };
+    let options: FindOptions<U> = { where: this.compileWheres<U>() };
 
-    if (this.options.attrs) {
-      options.attributes = this.compileAttributes();
-    }
-
-    if (this.options.includes) {
-      options.include = this.compileIncludes();
-    }
-
-    if (this.options.orderings) {
-      options.order = this.compileOrderings();
-    }
-
-    if (this.options.skipped > 0) {
-      options.offset = this.options.skipped;
-    }
-
-    if (this.options.taken > 0) {
-      options.limit = this.options.taken;
-    }
+    if (this.options.attrs) options.attributes = this.compileAttributes();
+    if (this.options.includes) options.include = this.compileIncludes();
+    if (this.options.orderings) options.order = this.compileOrderings();
+    if (this.options.groupBys) options.group = this.compileGroupBys();
+    if (this.options.skipped > 0) options.offset = this.options.skipped;
+    if (this.options.taken > 0) options.limit = this.options.taken;
 
     return options;
   }
@@ -1168,8 +1188,19 @@ export class Query<T extends Model> {
    * @returns The Sequelize representation.
    */
   compileAttributes(): FindOptionsAttributesArray {
-    return this.options.attrs.map(w => w instanceof AttributeQueryable ? w.compileLeft() : w.compileRight());
+    return this.options.attrs.map(w =>
+       _.isArray(w) ? w.map(x => x instanceof AttributeQueryable ? x.compileLeft() : x.compileRight()) :
+       w instanceof AttributeQueryable ? w.compileLeft() : w.compileRight());
   }
+
+  /**
+   * Compile the group to a representation expected by Sequelize.
+   *
+   * @returns The Sequelize representation.
+   */
+   compileGroupBys(): any {
+     return this.options.groupBys.map(w => w instanceof AttributeQueryable ? w.compileLeft() : w.compileRight());
+   }
 
   /**
    * Compile the orderings to a representation expected by Sequelize.
