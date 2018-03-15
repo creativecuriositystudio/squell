@@ -1,6 +1,6 @@
 {
   "name": "squell",
-  "version": "1.0.0-alpha.36",
+  "version": "2.0.0",
   "main": "dist/index.js",
   "bugs": "https://github.com/creativecuriositystudio/squell/issues",
   "keywords": [
@@ -15,11 +15,13 @@
   "license": "MIT",
   "description": "A type-safe wrapper around the Sequelize ORM for TypeScript",
   "contributors": [
-    "Zack Corr <zack@z0w0.me> (http://z0w0.me)"
+    "Zack Corr <zack@z0w0.me> (http://z0w0.me)",
+    "Daniel Cavanagh <danielcavanagh85@gmail.com>",
+    "Sorakthun Ly <ly.sorakthun@gmail.com>"
   ],
   "scripts": {
     "prepush": "npm run lint && npm run test",
-    "prepublish": "npm run build",
+    "prepare": "npm run build",
     "build": "tsc && cp src/*.js dist",
     "test": "mocha --opts mocha.opts",
     "test:auto": "mocha --opts mocha.opts --watch",
@@ -28,24 +30,9 @@
   },
   "types": "./dist/index.d.ts",
   "author": "Zack Corr <zack@z0w0.me>",
-  "devDependencies": {
-    "@types/mocha": "^2.2.33",
-    "@types/sequelize": "^4.0.76",
-    "@types/should": "^8.1.30",
-    "gh-pages": "^1.0.0",
-    "husky": "^0.13.2",
-    "mocha": "^3.2.0",
-    "modelsafe": "^1.0.0-alpha.13",
-    "sequelize": "^4.12.0",
-    "should": "^11.1.2",
-    "sqlite": "^2.2.4",
-    "ts-node": "^3.3.0",
-    "tslint": "^5.0.0",
-    "tslint-config-ccs": "^0.5.2"
-  },
   "peerDependencies": {
     "@types/sequelize": "^4.0.76",
-    "modelsafe": ">=1.0.0-alpha.8 <2.0.0",
+    "modelsafe": "^2.0.0",
     "sequelize": "^4.12.0"
   },
   "dependencies": {
@@ -54,5 +41,20 @@
     "lodash": "^4.17.4",
     "reflect-metadata": "^0.1.8",
     "typescript": "^2.3.4"
+  },
+  "devDependencies": {
+    "@types/mocha": "^2.2.33",
+    "@types/sequelize": "^4.0.76",
+    "@types/should": "^8.1.30",
+    "gh-pages": "^1.0.0",
+    "husky": "^0.13.2",
+    "mocha": "^3.2.0",
+    "modelsafe": "^2.0.0",
+    "sequelize": "^4.12.0",
+    "should": "^11.1.2",
+    "sqlite": "^2.2.4",
+    "ts-node": "^3.3.0",
+    "tslint": "^5.0.0",
+    "tslint-config-ccs": "^0.5.2"
   }
 }

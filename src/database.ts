@@ -10,7 +10,7 @@ import { DestroyOptions, DropOptions, Options as SequelizeOptions,
          Sequelize as Connection, SyncOptions, Transaction, Model as SequelizeModel,
          DefineAttributeColumnOptions, DefineAttributes,
          DataTypeAbstract, STRING, CHAR, TEXT, INTEGER, BIGINT,
-         DOUBLE, BOOLEAN, TIME, DATE, JSON, BLOB, ENUM, ARRAY,
+         DOUBLE, BOOLEAN, TIME, DATE, DATEONLY, JSON, BLOB, ENUM, ARRAY,
          AssociationOptionsBelongsToMany as SequelizeAssociationOptionsBelongsToMany
        } from 'sequelize';
 
@@ -35,7 +35,8 @@ function mapType(type: AttributeType): DataTypeAbstract {
   case InternalAttributeType.REAL: return DOUBLE;
   case InternalAttributeType.BOOLEAN: return BOOLEAN;
   case InternalAttributeType.TIME: return TIME;
-  case InternalAttributeType.DATE: return DATE;
+  case InternalAttributeType.DATETIME: return DATE;
+  case InternalAttributeType.DATE: return DATEONLY;
   case InternalAttributeType.OBJECT: return JSON;
   case InternalAttributeType.BLOB: return BLOB;
   case InternalAttributeType.ENUM: {
