@@ -1,3 +1,7 @@
+# 2.0.1
+
+* [UPDATE] return more specific types from queryables 
+
 # 2.0.0
 
 * [UPDATE] update to modelsafe 2

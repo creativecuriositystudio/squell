@@ -11,7 +11,7 @@ import { Where } from './where';
  * This should be used for path-specific queries on model attributes
  * that cannot easily be constructed using the query DSL.
  */
-export function attribute(name: string): Queryable<any> {
+export function attribute(name: string): AttributeQueryable<any> {
   return new AttributeQueryable(name);
 }
 
@@ -21,7 +21,7 @@ export function attribute(name: string): Queryable<any> {
  * This will function the same as the Sequelize function
  * with the same name when used in a query.
  */
-export function col(name: string): Queryable<any> {
+export function col(name: string): ColumnQueryable<any> {
   return new ColumnQueryable(name);
 }
 
@@ -38,7 +38,7 @@ export function col(name: string): Queryable<any> {
  *
  * @see as
  */
-export function fn(name: string, ...args: Queryable<any>[]): Queryable<any> {
+export function fn(name: string, ...args: Queryable<any>[]): FunctionQueryable<any> {
   return new FunctionQueryable(name, args);
 }
 
@@ -50,7 +50,7 @@ export function fn(name: string, ...args: Queryable<any>[]): Queryable<any> {
  * part, the Squell query DSL should completely facilitate
  * this sort of functionality on its own, but this function may be necessary in some cases.
  */
-export function constant<T>(value: any): Queryable<T> {
+export function constant<T>(value: any): ConstantQueryable<T> {
   return new ConstantQueryable<T>(value);
 }
 
