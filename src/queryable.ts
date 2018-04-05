@@ -488,7 +488,7 @@ export class FunctionQueryable<T> extends Queryable<T> {
 
   /** Compiles into the right side format. */
   compileRight(): any {
-    return sequelizeFn.apply(sequelizeFn, [this.name].concat(this.args.map(a => a.compileRight())));
+    return sequelizeFn.apply(sequelizeFn, [this.name].concat(this.args.map(a => a.compileLeft())));
   }
 
   /** Compiles into the left side format. */
@@ -580,4 +580,12 @@ export class AssociationQueryable<T> extends AttributeQueryable<T> {}
  */
 export type ModelQueryables<T extends Model> = {
   [P in keyof T]: Queryable<T[P]>;
+};
+
+/**
+ * A mapped type that maps all of a model properties
+ * to Squell attribute queryables to support type-safe queries.
+ */
+export type ModelAttributeQueryables<T extends Model> = {
+  [P in keyof T]: AttributeQueryable<T[P]>;
 };

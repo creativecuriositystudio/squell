@@ -1,6 +1,10 @@
-# 2.0.1
+# 2.0.2
 
 * [UPDATE] return more specific types from queryables 
+
+# 2.0.1
+
+* [UPDATE] add groupBy 
 
 # 2.0.0
 
