@@ -1,3 +1,7 @@
+# 2.0.3
+
+* [FIX] compile cols with `compileRight()` in group bys and fns
+
 # 2.0.2
 
 * [UPDATE] return more specific types from queryables 

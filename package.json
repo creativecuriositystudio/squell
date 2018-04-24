@@ -1,6 +1,6 @@
 {
   "name": "squell",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "bugs": "https://github.com/creativecuriositystudio/squell/issues",
   "keywords": [
     "sequelize",
@@ -29,7 +29,6 @@
   },
   "main": "dist/index.js",
   "types": "./dist/index.d.ts",
-  "author": "Zack Corr <zack@z0w0.me>",
   "peerDependencies": {
     "@types/sequelize": "^4.0.76",
     "modelsafe": "^2.0.0",

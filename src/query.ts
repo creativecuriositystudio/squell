@@ -342,6 +342,7 @@ export class Query<T extends Model> {
    */
   attributes(map: (queryable: ModelAttributeQueryables<T>) =>
     (AttributeQueryable<any> | [FunctionQueryable<any>, AttributeQueryable<any>])[]): Query<T> {
+
     let attrs = this.options.attrs || [];
     let options = { ... this.options, attrs: attrs.concat(map(getAttributeQueryables(this.model))) };
 
@@ -1200,7 +1201,7 @@ export class Query<T extends Model> {
    * @returns The Sequelize representation.
    */
    compileGroupBys(): any {
-     return this.options.groupBys.map(w => w instanceof AttributeQueryable ? w.compileLeft() : w.compileRight());
+     return this.options.groupBys.map(w => w.compileRight());
    }
 
   /**
