@@ -12,7 +12,8 @@ import { FindOptions, WhereOptions, BelongsToAssociation,
          Model as SequelizeModel, Transaction, TruncateOptions, DropOptions, Instance
        } from 'sequelize';
 
-import { Queryable, AttributeQueryable, AssociationQueryable, ModelQueryables, FunctionQueryable, ModelAttributeQueryables } from './queryable';
+import { Queryable, AttributeQueryable, AssociationQueryable, ModelQueryables, FunctionQueryable,
+  ModelAttributeQueryables } from './queryable';
 import { getAttributeOptions, getAssociationOptions } from './metadata';
 import { Where } from './where';
 import { Database } from './database';
@@ -339,7 +340,9 @@ export class Query<T extends Model> {
    *            and produce an array of attributes to be included in the result.
    * @returns The new query with the selected attributes only.
    */
-  attributes(map: (queryable: ModelAttributeQueryables<T>) => (AttributeQueryable<any> | [FunctionQueryable<any>, AttributeQueryable<any>])[]): Query<T> {
+  attributes(map: (queryable: ModelAttributeQueryables<T>) => (AttributeQueryable<any> | [FunctionQueryable<any>,
+    AttributeQueryable<any>])[]): Query<T> {
+
     let attrs = this.options.attrs || [];
     let options = { ... this.options, attrs: attrs.concat(map(getAttributeQueryables(this.model))) };
 
@@ -1198,7 +1201,7 @@ export class Query<T extends Model> {
    * @returns The Sequelize representation.
    */
    compileGroupBys(): any {
-     return this.options.groupBys.map(w => w instanceof AttributeQueryable ? w.compileLeft() : w.compileRight());
+     return this.options.groupBys.map(w => w.compileRight());
    }
 
   /**

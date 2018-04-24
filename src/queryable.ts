@@ -488,7 +488,7 @@ export class FunctionQueryable<T> extends Queryable<T> {
 
   /** Compiles into the right side format. */
   compileRight(): any {
-    return sequelizeFn.apply(sequelizeFn, [this.name].concat(this.args.map(a => a.compileLeft())));
+    return sequelizeFn.apply(sequelizeFn, [this.name].concat(this.args.map(a => a.compileRight())));
   }
 
   /** Compiles into the left side format. */
@@ -588,4 +588,4 @@ export type ModelQueryables<T extends Model> = {
  */
 export type ModelAttributeQueryables<T extends Model> = {
   [P in keyof T]: AttributeQueryable<T[P]>;
-}
+};
