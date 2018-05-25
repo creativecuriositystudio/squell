@@ -15,7 +15,9 @@
   "license": "MIT",
   "description": "A type-safe wrapper around the Sequelize ORM for TypeScript",
   "contributors": [
-    "Zack Corr <zack@z0w0.me> (http://z0w0.me)"
+    "Zack Corr <zack@z0w0.me> (http://z0w0.me)",
+    "Daniel Cavanagh <danielcavanagh85@gmail.com>",
+    "Sorakthun Lee <sorakthun@sorak.io>"
   ],
   "scripts": {
     "prepush": "npm run lint && npm run test",
@@ -27,7 +29,6 @@
     "clean": "rm -rf dist"
   },
   "types": "./dist/index.d.ts",
-  "author": "Zack Corr <zack@z0w0.me>",
   "devDependencies": {
     "@types/mocha": "^2.2.33",
     "@types/sequelize": "^4.0.76",
@@ -51,6 +52,7 @@
     "@types/lodash": "^4.14.62",
     "@types/reflect-metadata": "0.0.5",
     "lodash": "^4.17.4",
+    "mysql2": "^1.5.3",
     "reflect-metadata": "^0.1.8",
     "sqlite3": "^4.0.0",
     "typescript": "^2.3.4"

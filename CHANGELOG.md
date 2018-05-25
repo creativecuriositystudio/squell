@@ -2,6 +2,10 @@
 
 * [FIX] set foreign key on has-many assoc objs before association for updates as well
 
+# 1.0.0-alpha.37
+
+* [FIX] compile cols with `compileRight()` in group bys and fns
+
 # 1.0.0-alpha.36
 
 * [FIX] account for includes in `count()`
