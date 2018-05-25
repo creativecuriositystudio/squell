@@ -12,7 +12,8 @@ import { FindOptions, WhereOptions, BelongsToAssociation,
          Model as SequelizeModel, Transaction, TruncateOptions, DropOptions, Instance
        } from 'sequelize';
 
-import { Queryable, AttributeQueryable, AssociationQueryable, ModelQueryables, FunctionQueryable, ModelAttributeQueryables } from './queryable';
+import { Queryable, AttributeQueryable, AssociationQueryable, ModelQueryables, FunctionQueryable, ModelAttributeQueryables
+  } from './queryable';
 import { getAttributeOptions, getAssociationOptions } from './metadata';
 import { Where } from './where';
 import { Database } from './database';
@@ -339,7 +340,8 @@ export class Query<T extends Model> {
    *            and produce an array of attributes to be included in the result.
    * @returns The new query with the selected attributes only.
    */
-  attributes(map: (queryable: ModelAttributeQueryables<T>) => (AttributeQueryable<any> | [FunctionQueryable<any>, AttributeQueryable<any>])[]): Query<T> {
+  attributes(map: (queryable: ModelAttributeQueryables<T>) => (AttributeQueryable<any> | [FunctionQueryable<any>,
+    AttributeQueryable<any>])[]): Query<T> {
     let attrs = this.options.attrs || [];
     let options = { ... this.options, attrs: attrs.concat(map(getAttributeQueryables(this.model))) };
 
@@ -762,7 +764,7 @@ export class Query<T extends Model> {
    *          if there was an error.
    */
   // FIXME this is not recursive! big issue as deep includes will get ignored
-  protected async associate(type: 'create' | 'update', model: ModelConstructor<T>, internalInstance: Instance<T>, data: Partial<T>,
+  protected async associate(model: ModelConstructor<T>, internalInstance: Instance<T>, data: Partial<T>,
                             includes: IncludeOptions<Model>[], transaction?: Transaction): Promise<Instance<T>> {
     // No point doing any operations/reloading if no includes were set.
     if (!includes || includes.length < 1) return internalInstance;
@@ -797,7 +799,7 @@ export class Query<T extends Model> {
         continue;
 
       // When creating objects for a has-one/has-many relationship, set the foreign key to make the validator happy
-      if (type === 'create' && (internalAssoc.associationType === 'HasOne' || internalAssoc.associationType === 'HasMany')) {
+      if (internalAssoc.associationType === 'HasOne' || internalAssoc.associationType === 'HasMany') {
         const targetAssoc = assoc.targetAssoc ? assoc.targetAssoc(getModelAssociations(assocModel)) : null;
         const targetAssocOptions = targetAssoc ? getAssociationOptions(assocModel.constructor, targetAssoc.key) : null;
         const targetAssocForeignKey = targetAssocOptions ?
@@ -815,9 +817,7 @@ export class Query<T extends Model> {
       // This is the same across all associations.
       let method = internalInstance['set' + Utils.uppercaseFirst(key)];
 
-      if (typeof (method) !== 'function') {
-        continue;
-      }
+      if (typeof (method) !== 'function') continue;
 
       method = method.bind(internalInstance);
 
@@ -972,7 +972,7 @@ export class Query<T extends Model> {
 
     if (options.associate) {
       // Save associations of the Sequelize data and reload
-      data = await this.associate('create', this.model, (data as any as Instance<T>), values, this.options.includes,
+      data = await this.associate(this.model, (data as any as Instance<T>), values, this.options.includes,
         options.transaction) as any as T;
     }
 
@@ -1097,7 +1097,7 @@ export class Query<T extends Model> {
     if (options.associate) {
       // Save associations of each Sequelize data and reload all
       data = await Promise.all(data.map(async (item: T) => {
-        return await this.associate('update', this.model, (item as any as Instance<T>), values, this.options.includes,
+        return await this.associate(this.model, (item as any as Instance<T>), values, this.options.includes,
           options.transaction) as any as T;
       }));
     }

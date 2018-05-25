@@ -1,3 +1,7 @@
+# 1.0.0-alpha.38
+
+* [FIX] set foreign key on has-many assoc objs before association for updates as well
+
 # 1.0.0-alpha.36
 
 * [FIX] account for includes in `count()`

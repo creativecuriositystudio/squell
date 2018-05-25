@@ -588,4 +588,4 @@ export type ModelQueryables<T extends Model> = {
  */
 export type ModelAttributeQueryables<T extends Model> = {
   [P in keyof T]: AttributeQueryable<T[P]>;
-}
+};
