@@ -1,4 +1,4 @@
-# 1.0.0-alpha.38
+# 1.0.0-alpha.39
 
 * [FIX] set foreign key on has-many assoc objs before association for updates as well
 
