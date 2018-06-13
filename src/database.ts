@@ -6,7 +6,7 @@ import { Model, ModelConstructor, AttributeType, InternalAttributeType, Associat
          ArrayAttributeTypeOptions, EnumAttributeTypeOptions, isLazyLoad,
          getModelOptions, getAttributes, getAssociations, AssociationTarget,
          HAS_ONE, HAS_MANY, BELONGS_TO, BELONGS_TO_MANY } from 'modelsafe';
-import { DestroyOptions, DropOptions, Options as SequelizeOptions,
+import { DestroyOptions, DropOptions, Options as SequelizeOptions, query
          Sequelize as Connection, SyncOptions, Transaction, Model as SequelizeModel,
          DefineAttributeColumnOptions, DefineAttributes,
          DataTypeAbstract, STRING, CHAR, TEXT, INTEGER, BIGINT,
@@ -385,6 +385,16 @@ export class Database {
    */
   query<T extends Model>(model: ModelConstructor<T>): Query<T> {
     return new Query<T>(this, model);
+  }
+
+  /**
+   * Start a native query to the database.
+   *
+   * @param query The native query string.
+   * @returns Query result as formatted by Sequelize @see http://docs.sequelizejs.com/manual/tutorial/raw-queries.html
+   */
+  async rawQuery(query: string | { query: string; values: any[] }, options?: Sequelize.QueryOptions) {
+    return this.conn.query(query, options);
   }
 
   /**
