@@ -6,7 +6,7 @@ import { Model, ModelConstructor, AttributeType, InternalAttributeType, Associat
          ArrayAttributeTypeOptions, EnumAttributeTypeOptions, isLazyLoad,
          getModelOptions, getAttributes, getAssociations, AssociationTarget,
          HAS_ONE, HAS_MANY, BELONGS_TO, BELONGS_TO_MANY } from 'modelsafe';
-import { DestroyOptions, DropOptions, Options as SequelizeOptions, query
+import { DestroyOptions, DropOptions, Options as SequelizeOptions,
          Sequelize as Connection, SyncOptions, Transaction, Model as SequelizeModel,
          DefineAttributeColumnOptions, DefineAttributes,
          DataTypeAbstract, STRING, CHAR, TEXT, INTEGER, BIGINT,
