@@ -1210,7 +1210,11 @@ export class Query<T extends Model> {
    * @returns The Sequelize representation.
    */
   compileOrderings(): any {
-    return this.options.orderings.map(([attr, order]) => [attr.compileLeft(), order.toString()]);
+    // FIX ME Allow Sequelize string ordering to compile at the moment. This needs to be properly typed.
+    return this.options.orderings.map(ordering => {
+      return ordering.length > 2 && ordering.every(i => typeof i === 'string') ?
+        ordering : [ordering[0].compileLeft(), ordering[1].toString()];
+    });
   }
 
   /**
