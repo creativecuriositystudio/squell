@@ -1,8 +1,12 @@
 # 2.0.8
 
-* [UPDATE] allow for untyped ordering query for nested associations. Will add typing in the next patch.
+* [UPDATE] allow for untyped ordering query for nested associations. Will add typing in the next patch
 
-* Do not upgrade to this version if you want to keep the changes in 2.0.4 to 2.0.7. There were some unmerged changes. Sorry for the inconvenience. Will merge all changes and republish the package at 2.0.9.
+* Previous versions were skipped due to accidental publishing
+
+# 2.0.4
+
+* [UPDATE] allow for database raw query
 
 # 2.0.3
 
