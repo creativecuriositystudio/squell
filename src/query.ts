@@ -93,7 +93,7 @@ export interface CreateOptions extends SequelizeCreateOptions {
  * @param err The Sequelize validation error.
  * @returns The coerced error.
  */
-function coerceValidationError<T extends Model>(
+export function coerceValidationError<T extends Model>(
   ctor: ModelConstructor<T>,
   err: SequelizeValidationError,
   prefix?: string,
@@ -148,7 +148,7 @@ function coerceValidationError<T extends Model>(
 }
 
 /** Calculate the max include depth on the given query */
-function calcIncludeDepth(query: Query<Model>, depth: number = 0): number {
+export function calcIncludeDepth(query: Query<Model>, depth: number = 0): number {
   return query && query.options.includes ?
     _.max(_.map(query.options.includes, _ => calcIncludeDepth(_.query, depth + 1))) || depth :
     depth;
@@ -216,7 +216,7 @@ export async function preventRequiredDefaultValues<T extends Model>(err: Validat
  * @param ctor The model constructor.
  * @returns The mapped queryable properties.
  */
-function getQueryables<T extends Model>(ctor: ModelConstructor<T>): ModelQueryables<T> {
+export function getQueryables<T extends Model>(ctor: ModelConstructor<T>): ModelQueryables<T> {
   let result = {};
   let attrs = getModelAttributes(ctor);
   let assocs = getModelAssociations(ctor);
@@ -238,7 +238,7 @@ function getQueryables<T extends Model>(ctor: ModelConstructor<T>): ModelQueryab
  * @param ctor The model constructor.
  * @returns The mapped queryable properties.
  */
-function getAttributeQueryables<T extends Model>(ctor: ModelConstructor<T>): ModelAttributeQueryables<T> {
+export function getAttributeQueryables<T extends Model>(ctor: ModelConstructor<T>): ModelAttributeQueryables<T> {
   let result = {};
   let attrs = getModelAttributes(ctor);
 
@@ -265,7 +265,7 @@ export class Query<T extends Model> {
   options: QueryOptions<T>;
 
   /** The internal Sequelize representation of the model. */
-  private internalModel: SequelizeModel<T, T>;
+  protected internalModel: SequelizeModel<T, T>;
 
   /**
    * Construct a query. This generally should not be done by user code,
